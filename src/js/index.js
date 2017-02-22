@@ -19,6 +19,9 @@ require('imports?THREE=three!three/examples/js/vr/ViveController');
 const renderer = new THREE.WebGLRenderer({
 	antialias: false
 });
+const canvas = renderer.domElement;
+renderer.autoClear = false;
+renderer.setClearColor(0x000000, 1);
 renderer.setPixelRatio(Math.floor(window.devicePixelRatio || 1));
 renderer.shadowMap.autoUpdate = false;
 renderer.shadowMap.type = THREE.PCFShadowMap;
@@ -183,11 +186,26 @@ function animate(timestamp) {
 	// render shadows once per cycle (not for each eye)
 	renderer.shadowMap.needsUpdate = true;
 
-	// Render the scene.
-	effect.render(scene, camera);
+	const isPresenting = vrDisplay && vrDisplay.isPresenting;
+
+	const pixelRatio = renderer.getPixelRatio();
+	const width = canvas.width / pixelRatio;
+	const height = canvas.height / pixelRatio;
+	if (isPresenting) {
+		// Render the scene in stereo
+		renderer.clear();
+		renderer.setViewport(0, 0, width / 2, height);
+		effect.render(scene, camera);
+	}
+
+	if (!isPresenting || vrDisplay.capabilities.hasExternalDisplay) {
+		renderer.clear();
+		renderer.setViewport(0, 0, width, height);
+		renderer.render(scene, camera);
+	}
 
 	// Keep looping.
-	if (vrDisplay && vrDisplay.isPresenting) {
+	if (isPresenting) {
 		vrDisplay.requestAnimationFrame(animate);
 	} else {
 		window.requestAnimationFrame(animate);
