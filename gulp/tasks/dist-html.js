@@ -24,6 +24,7 @@ module.exports = function () {
 	const htmlmin = require('gulp-htmlmin');
 
 	const config = require('../../config');
+	const THREE = require('three');
 
 	nunjucksRender.nunjucks.configure(['src/'], { watch: false });
 
@@ -37,6 +38,12 @@ module.exports = function () {
 				ga: true
 			};
 
+			if (/^[0-9]+$/.test(THREE.REVISION)) {
+				vars.scripts.unshift(
+					// 'https://ajax.googleapis.com/ajax/libs/threejs/' + THREE.REVISION + '/three.min.js'
+					'https://cdnjs.cloudflare.com/ajax/libs/three.js/' + THREE.REVISION + '/three.min.js'
+				);
+			}
 			return vars;
 		}))
 		.pipe(nunjucksRender({
