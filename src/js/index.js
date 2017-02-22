@@ -17,6 +17,9 @@ const renderer = new THREE.WebGLRenderer({
 	antialias: false
 });
 renderer.setPixelRatio(Math.floor(window.devicePixelRatio || 1));
+renderer.shadowMap.autoUpdate = false;
+renderer.shadowMap.type = THREE.PCFShadowMap;
+renderer.shadowMap.enabled = true;
 
 // Append the canvas element created by the renderer to document body element.
 document.body.appendChild(renderer.domElement);
@@ -42,6 +45,7 @@ const floor = new THREE.Mesh(
 		color: 0xAAAAAA
 	})
 );
+floor.receiveShadow = true;
 floor.rotation.x = -Math.PI / 2;
 scene.add(floor);
 
@@ -62,12 +66,23 @@ scene.add(room);
 // instantiate a loader
 const colladaLoader = new THREE.ColladaLoader();
 colladaLoader.load(
-	// resource URL
 	require('../models/alien_infected3.dae'),
-	// Function when resource is loaded
 	collada => {
-		collada.scene.scale.multiplyScalar(0.2);
-		collada.scene.position.set(0, 1.5, -1);
+		const bbox = new THREE.Box3();
+		bbox.setFromObject(collada.scene);
+
+		// for now, set puppet on the floor where we can see it.
+		collada.scene.position.set(0, -bbox.min.y, -3);
+
+		// todo: set appropriate scale of puppet objects
+		console.log(bbox.getSize());
+
+		collada.scene.traverse(obj => {
+			if (obj.geometry) {
+				obj.castShadow = true;
+				obj.receiveShadow = true;
+			}
+		});
 		scene.add(collada.scene);
 	},
 	// Function called when download progresses
@@ -77,8 +92,28 @@ colladaLoader.load(
 );
 
 const light = new THREE.DirectionalLight(0xffffff);
-light.position.set(1, 1, 1).normalize();
+light.position.set(0, 10, 0);
 scene.add(light);
+
+light.castShadow = true;
+
+light.shadow.mapSize.width = 2048;
+light.shadow.mapSize.height = 2048;
+
+/*
+todo: update shadow size dynamically
+- union of bounding box of scene and VR standing room
+- scale for size of user?
+*/
+light.shadow.camera.left = -4;
+light.shadow.camera.right = 4;
+light.shadow.camera.top = 4;
+light.shadow.camera.bottom = -4;
+
+light.shadow.camera.far = 11;
+light.shadow.camera.near = 1;
+
+// scene.add(new THREE.CameraHelper(light.shadow.camera));
 
 scene.add(new THREE.AmbientLight(0x666666));
 
@@ -91,6 +126,9 @@ function animate(timestamp) {
 
 	// Update VR headset position and apply to camera.
 	controls.update();
+
+	// render shadows once per cycle (not for each eye)
+	renderer.shadowMap.needsUpdate = true;
 
 	// Render the scene.
 	effect.render(scene, camera);
