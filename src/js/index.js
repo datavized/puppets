@@ -98,6 +98,7 @@ function loadController() {
 			const controller = results[0];
 			controller.material.map = results[1];
 			controller.material.specularMap = results[2];
+			controller.castShadow = true;
 
 			return controller;
 		});
