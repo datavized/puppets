@@ -74,7 +74,7 @@ module.exports = (function () {
 					todo: look into optimizing image files
 					maybe this https://github.com/tcoopman/image-webpack-loader
 					*/
-					test: /\.(dae)$/,
+					test: /\.(obj|dae)$/,
 					loader: 'url-loader',
 					query: {
 						limit: 1,

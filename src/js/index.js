@@ -6,10 +6,13 @@ window.WebVRConfig = {
 
 const THREE = window.THREE = require('three');
 
+// external dependencies
 require('webvr-polyfill/src/main');
 require('imports?THREE=three!three/examples/js/controls/VRControls');
 require('imports?THREE=three!three/examples/js/effects/VREffect');
 require('imports?THREE=three!three/examples/js/loaders/ColladaLoader');
+require('imports?THREE=three!three/examples/js/loaders/OBJLoader');
+require('imports?THREE=three!three/examples/js/vr/ViveController');
 
 // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
 // Only enable it if you actually need to.
@@ -62,6 +65,46 @@ const room = new THREE.Mesh(
 room.position.y = 490;
 scene.add(room);
 
+// set up controllers
+let controllerGeometryPromise;
+const controllers = [];
+const textureLoader = new THREE.TextureLoader();
+for (let i = 0; i < 2; i++) {
+	const controller = new THREE.ViveController(i);
+	controller.standingMatrix = controls.getStandingMatrix();
+	scene.add(controller);
+	controllers.push(controller);
+}
+
+function loadController() {
+	if (!controllerGeometryPromise) {
+		const promises = [];
+		promises.push(new Promise(resolve => {
+			const objLoader = new THREE.OBJLoader();
+			objLoader.load(require('../models/vive-controller/vr_controller_vive_1_5.obj'), object => {
+				resolve(object.children[0]);
+			});
+		}));
+
+		promises.push(new Promise(resolve => {
+			textureLoader.load(require('../models/vive-controller/onepointfive_texture.png'), tex => resolve(tex));
+		}));
+
+		promises.push(new Promise(resolve => {
+			textureLoader.load(require('../models/vive-controller/onepointfive_spec.png'), tex => resolve(tex));
+		}));
+
+		controllerGeometryPromise = Promise.all(promises).then(results => {
+			const controller = results[0];
+			controller.material.map = results[1];
+			controller.material.specularMap = results[2];
+
+			return controller;
+		});
+	}
+
+	return controllerGeometryPromise;
+}
 
 // instantiate a loader
 const colladaLoader = new THREE.ColladaLoader();
@@ -126,6 +169,14 @@ function animate(timestamp) {
 
 	// Update VR headset position and apply to camera.
 	controls.update();
+
+	controllers.forEach(c => {
+		c.update();
+		if (c.visible && !c.userData.gamepad) {
+			c.userData.gamepad = c.getGamepad();
+			loadController().then(obj => c.add(obj.clone()));
+		}
+	});
 
 	// render shadows once per cycle (not for each eye)
 	renderer.shadowMap.needsUpdate = true;
