@@ -115,7 +115,8 @@ colladaLoader.load(
 		bbox.setFromObject(collada.scene);
 
 		// for now, set puppet on the floor where we can see it.
-		collada.scene.position.set(0, -bbox.min.y, -3);
+		collada.scene.position.set(0, -bbox.min.z, -3);
+		collada.scene.rotation.x = -Math.PI / 2;
 
 		// todo: set appropriate scale of puppet objects
 		console.log(bbox.getSize());
