@@ -239,7 +239,11 @@ document.querySelector('button#fullscreen').addEventListener('click', () => {
 	enterFullscreen(renderer.domElement);
 });
 document.querySelector('button#vr').addEventListener('click', () => {
-	vrDisplay.requestPresent([{source: renderer.domElement}]);
+	if (vrDisplay.isPresenting) {
+		vrDisplay.exitPresent();
+	} else {
+		vrDisplay.requestPresent([{source: renderer.domElement}]);
+	}
 });
 // document.querySelector('button#reset').addEventListener('click', () => {
 // 	vrDisplay.resetPose();
