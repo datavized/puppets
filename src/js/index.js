@@ -35,35 +35,29 @@ controls.standing = true;
 const effect = new THREE.VREffect(renderer);
 effect.setSize(window.innerWidth, window.innerHeight);
 
-// Add a repeating grid as a skybox.
-const boxWidth = 5;
-const texLoader = new THREE.TextureLoader();
-texLoader.load('img/box.png', texture => {
-	texture.wrapS = THREE.RepeatWrapping;
-	texture.wrapT = THREE.RepeatWrapping;
-	texture.repeat.set(boxWidth, boxWidth);
+// set up environment
+const floor = new THREE.Mesh(
+	new THREE.PlaneBufferGeometry(1000, 1000),
+	new THREE.MeshLambertMaterial({
+		color: 0xAAAAAA
+	})
+);
+floor.rotation.x = -Math.PI / 2;
+scene.add(floor);
 
-	const geometry = new THREE.BoxGeometry(boxWidth, boxWidth, boxWidth);
-	const material = new THREE.MeshBasicMaterial({
-		map: texture,
-		color: 0x01BE00,
+// sky is just a box for now, as long as it's a solid color
+// might require a half-sphere later for a gradient or atmosphere
+// todo: if we end up keeping a solid color, just use a clearColor and skip geometry
+const room = new THREE.Mesh(
+	new THREE.BoxBufferGeometry(1000, 1000, 1000),
+	new THREE.MeshBasicMaterial({
+		color: 0xCCCCCC,
 		side: THREE.BackSide
-	});
+	})
+);
+room.position.y = 490;
+scene.add(room);
 
-	const skybox = new THREE.Mesh(geometry, material);
-	scene.add(skybox);
-});
-
-// Create 3D objects.
-const geometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-const material = new THREE.MeshNormalMaterial();
-const cube = new THREE.Mesh(geometry, material);
-
-// Position cube mesh
-cube.position.set(0, 1.5, -1);
-
-// Add cube mesh to your three.js scene
-// scene.add(cube);
 
 // instantiate a loader
 const colladaLoader = new THREE.ColladaLoader();
@@ -86,15 +80,14 @@ const light = new THREE.DirectionalLight(0xffffff);
 light.position.set(1, 1, 1).normalize();
 scene.add(light);
 
+scene.add(new THREE.AmbientLight(0x666666));
+
 // Request animation frame loop function
 let vrDisplay = null;
 let lastRender = 0;
 function animate(timestamp) {
 	const delta = Math.min(timestamp - lastRender, 500);
 	lastRender = timestamp;
-
-	// Apply rotation to cube mesh
-	cube.rotation.y += delta * 0.0006;
 
 	// Update VR headset position and apply to camera.
 	controls.update();
