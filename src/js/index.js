@@ -5,6 +5,7 @@ window.WebVRConfig = {
 };
 
 const CHARACTER_SCALE = 1.5;
+const WORLD_SHRINK_SCALE = 1 / 10;
 
 const THREE = window.THREE = require('three');
 
@@ -35,6 +36,9 @@ document.body.appendChild(renderer.domElement);
 // Create a three.js scene.
 const scene = new THREE.Scene();
 
+const world = new THREE.Object3D();
+scene.add(world);
+
 // Create a three.js camera.
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
 
@@ -55,7 +59,7 @@ const floor = new THREE.Mesh(
 );
 floor.receiveShadow = true;
 floor.rotation.x = -Math.PI / 2;
-scene.add(floor);
+world.add(floor);
 
 // sky is just a box for now, as long as it's a solid color
 // might require a half-sphere later for a gradient or atmosphere
@@ -70,6 +74,21 @@ const room = new THREE.Mesh(
 room.position.y = 490;
 scene.add(room);
 
+// editing state
+let isEditing = false;
+function updateEditingState() {
+	const worldScale = isEditing ? WORLD_SHRINK_SCALE : 1;
+	world.scale.set(worldScale, worldScale, worldScale);
+
+	// todo: adjust this for kids!!
+	world.position.y = isEditing ? 0.6 : 0;
+}
+
+function toggleEditing() {
+	isEditing = !isEditing;
+	updateEditingState();
+}
+
 // set up controllers
 let controllerGeometryPromise;
 const controllers = [];
@@ -79,6 +98,8 @@ for (let i = 0; i < 2; i++) {
 	controller.standingMatrix = controls.getStandingMatrix();
 	scene.add(controller);
 	controllers.push(controller);
+
+	controller.addEventListener('thumbpaddown', toggleEditing);
 }
 
 function loadController() {
@@ -165,7 +186,7 @@ Promise.all([
 				}
 			}
 		});
-		scene.add(model);
+		world.add(model);
 	});
 });
 
@@ -318,5 +339,8 @@ window.addEventListener('keydown', e => {
 		} else if (event.keyCode === 27) { // escape
 			vrDisplay.exitPresent();
 		}
+	}
+	if (event.keyCode === 32) { // space
+		toggleEditing();
 	}
 }, true);
