@@ -310,3 +310,13 @@ navigator.getVRDisplays().then(displays => {
 });
 
 onVRDisplayPresentChange();
+
+window.addEventListener('keydown', e => {
+	if (vrDisplay) {
+		if (event.keyCode === 13) { // enter
+			vrDisplay.requestPresent([{source: renderer.domElement}]);
+		} else if (event.keyCode === 27) { // escape
+			vrDisplay.exitPresent();
+		}
+	}
+}, true);
