@@ -4,6 +4,8 @@ window.WebVRConfig = {
 	BUFFER_SCALE: 1.0
 };
 
+const CHARACTER_SCALE = 1.5;
+
 const THREE = window.THREE = require('three');
 
 // external dependencies
@@ -140,12 +142,13 @@ Promise.all([
 		const bbox = new THREE.Box3();
 		bbox.setFromObject(model);
 
-		// for now, set puppet on the floor where we can see it.
-		model.position.set(index - results.length / 2, -bbox.min.y, -2);
-		model.rotation.y = Math.PI;
-
 		// todo: set appropriate scale of puppet objects
-		console.log(bbox.getSize());
+		// console.log(bbox.getSize());
+		model.scale.multiplyScalar(CHARACTER_SCALE);
+
+		// for now, set puppet on the floor where we can see it.
+		model.position.set(CHARACTER_SCALE * 1.1 * (index - results.length / 2), -bbox.min.y * CHARACTER_SCALE, -2);
+		model.rotation.y = Math.PI;
 
 		model.traverse(obj => {
 			if (obj.geometry) {
