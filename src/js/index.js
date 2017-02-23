@@ -242,16 +242,6 @@ function animate(timestamp) {
 	}
 }
 
-// Get the VRDisplay and save it for later.
-navigator.getVRDisplays().then(displays => {
-	if (displays.length > 0) {
-		vrDisplay = displays[0];
-
-		// Kick off the render loop.
-		vrDisplay.requestAnimationFrame(animate);
-	}
-});
-
 function onResize() {
 	console.log('Resizing to %s x %s.', window.innerWidth, window.innerHeight);
 	effect.setSize(window.innerWidth, window.innerHeight);
@@ -259,9 +249,20 @@ function onResize() {
 	camera.updateProjectionMatrix();
 }
 
+const vrButton = document.querySelector('button#vr');
 function onVRDisplayPresentChange() {
 	console.log('onVRDisplayPresentChange');
 	onResize();
+	if (!vrDisplay) {
+		vrButton.style.display = 'none';
+	} else {
+		vrButton.style.display = '';
+		if (vrDisplay.isPresenting) {
+			vrButton.innerHTML = 'Exit VR';
+		} else {
+			vrButton.innerHTML = 'Enter VR';
+		}
+	}
 }
 
 function enterFullscreen(el) {
@@ -286,7 +287,7 @@ window.addEventListener('vrdisplaypresentchange', onVRDisplayPresentChange);
 document.querySelector('button#fullscreen').addEventListener('click', () => {
 	enterFullscreen(renderer.domElement);
 });
-document.querySelector('button#vr').addEventListener('click', () => {
+vrButton.addEventListener('click', () => {
 	if (vrDisplay.isPresenting) {
 		vrDisplay.exitPresent();
 	} else {
@@ -297,3 +298,15 @@ document.querySelector('button#vr').addEventListener('click', () => {
 // 	vrDisplay.resetPose();
 // });
 
+// Get the VRDisplay and save it for later.
+navigator.getVRDisplays().then(displays => {
+	if (displays.length > 0) {
+		vrDisplay = displays[0];
+
+		// Kick off the render loop.
+		vrDisplay.requestAnimationFrame(animate);
+	}
+	onVRDisplayPresentChange();
+});
+
+onVRDisplayPresentChange();
