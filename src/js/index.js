@@ -10,8 +10,8 @@ const THREE = window.THREE = require('three');
 require('webvr-polyfill/src/main');
 require('imports?THREE=three!three/examples/js/controls/VRControls');
 require('imports?THREE=three!three/examples/js/effects/VREffect');
-require('imports?THREE=three!three/examples/js/loaders/ColladaLoader');
 require('imports?THREE=three!three/examples/js/loaders/OBJLoader');
+require('imports?THREE=three!three/examples/js/loaders/MTLLoader');
 require('imports?THREE=three!three/examples/js/vr/ViveController');
 
 // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
@@ -111,33 +111,60 @@ function loadController() {
 }
 
 // instantiate a loader
-const colladaLoader = new THREE.ColladaLoader();
-colladaLoader.load(
-	require('../models/alien_infected3.dae'),
-	collada => {
+const mtlLoader = new THREE.MTLLoader();
+mtlLoader.setTexturePath('models/'); // todo: get this from mtl file url
+function loadModel(src) {
+	const mtlUrl = src.replace(/\.obj$/i, '.mtl');
+	return new Promise(resolve => {
+		mtlLoader.load(
+			mtlUrl,
+			materials => {
+				const objLoader = new THREE.OBJLoader();
+				objLoader.setMaterials(materials);
+				objLoader.load(
+					src,
+					obj => resolve(obj)
+				);
+			}
+		);
+	});
+}
+
+Promise.all([
+	loadModel('models/chr_lady2.obj'),
+	loadModel('models/chr_beardo1.obj'),
+	loadModel('models/chr_goth1.obj'),
+	loadModel('models/chr_headphones.obj')
+]).then(results => {
+	results.forEach((model, index) => {
 		const bbox = new THREE.Box3();
-		bbox.setFromObject(collada.scene);
+		bbox.setFromObject(model);
 
 		// for now, set puppet on the floor where we can see it.
-		collada.scene.position.set(0, -bbox.min.z, -3);
-		collada.scene.rotation.x = -Math.PI / 2;
+		model.position.set(index - results.length / 2, -bbox.min.y, -2);
+		model.rotation.y = Math.PI;
 
 		// todo: set appropriate scale of puppet objects
 		console.log(bbox.getSize());
 
-		collada.scene.traverse(obj => {
+		model.traverse(obj => {
 			if (obj.geometry) {
 				obj.castShadow = true;
 				obj.receiveShadow = true;
 			}
+			if (obj.material) {
+				obj.material.shading = THREE.SmoothShading;
+				const tex = obj.material.map;
+				if (tex) {
+					tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping;
+					tex.minFilter = THREE.LinearFilter;
+					tex.magFilter = THREE.NearestFilter;
+				}
+			}
 		});
-		scene.add(collada.scene);
-	},
-	// Function called when download progresses
-	xhr => {
-		console.log(xhr.loaded / xhr.total * 100 + '% loaded');
-	}
-);
+		scene.add(model);
+	});
+});
 
 const light = new THREE.DirectionalLight(0xffffff);
 light.position.set(0, 10, 0);
