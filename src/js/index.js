@@ -20,7 +20,7 @@ require('imports?THREE=three!three/examples/js/vr/ViveController');
 // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
 // Only enable it if you actually need to.
 const renderer = new THREE.WebGLRenderer({
-	antialias: false
+	antialias: true
 });
 const canvas = renderer.domElement;
 renderer.autoClear = false;
@@ -41,6 +41,8 @@ scene.add(world);
 
 // Create a three.js camera.
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+const screenCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
+let windowCamera = screenCamera;
 
 // Apply VR headset positional data to camera.
 const controls = new THREE.VRControls(camera);
@@ -73,6 +75,35 @@ const room = new THREE.Mesh(
 );
 room.position.y = 490;
 scene.add(room);
+
+/*
+Stage
+- todo: for now, just using a rectangle, but let's create an arc
+- share box geometry
+*/
+
+const stage = new THREE.Mesh(
+	new THREE.BoxBufferGeometry(20, 0.5, 10),
+	new THREE.MeshLambertMaterial({
+		color: 0x999999
+	})
+);
+stage.receiveShadow = true;
+stage.position.set(0, 0.25, -7);
+scene.add(stage);
+
+let isPreviewing = false;
+screenCamera.position.y = 1.5;
+screenCamera.position.z = 2;
+
+function updatePreviewing() {
+	windowCamera = isPreviewing ? camera : screenCamera;
+}
+
+function togglePreview() {
+	isPreviewing = !isPreviewing;
+	updatePreviewing();
+}
 
 // editing state
 let isEditing = false;
@@ -168,8 +199,14 @@ Promise.all([
 		model.scale.multiplyScalar(CHARACTER_SCALE);
 
 		// for now, set puppet on the floor where we can see it.
-		model.position.set(CHARACTER_SCALE * 1.1 * (index - results.length / 2), -bbox.min.y * CHARACTER_SCALE, -2);
+		model.position.set(CHARACTER_SCALE * 1.1 * (index - results.length / 2), -bbox.min.y * CHARACTER_SCALE, -3);
 		model.rotation.y = Math.PI;
+
+		/*
+		placing model on stage
+		todo: make a "stage" sub-scene or something
+		*/
+		model.position.y += 0.5;
 
 		model.traverse(obj => {
 			if (obj.geometry) {
@@ -252,7 +289,7 @@ function animate(timestamp) {
 	if (!isPresenting || vrDisplay.capabilities.hasExternalDisplay) {
 		renderer.clear();
 		renderer.setViewport(0, 0, width, height);
-		renderer.render(scene, camera);
+		renderer.render(scene, windowCamera);
 	}
 
 	// Keep looping.
@@ -268,6 +305,9 @@ function onResize() {
 	effect.setSize(window.innerWidth, window.innerHeight);
 	camera.aspect = window.innerWidth / window.innerHeight;
 	camera.updateProjectionMatrix();
+
+	screenCamera.aspect = window.innerWidth / window.innerHeight;
+	screenCamera.updateProjectionMatrix();
 }
 
 const vrButton = document.querySelector('button#vr');
@@ -342,5 +382,7 @@ window.addEventListener('keydown', e => {
 	}
 	if (event.keyCode === 32) { // space
 		toggleEditing();
+	} else if (event.keyCode === 86) { // v
+		togglePreview();
 	}
 }, true);
