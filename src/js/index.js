@@ -17,6 +17,8 @@ require('imports?THREE=three!three/examples/js/loaders/OBJLoader');
 require('imports?THREE=three!three/examples/js/loaders/MTLLoader');
 require('imports?THREE=three!three/examples/js/vr/ViveController');
 
+import SoundEffect from './sound-effect';
+
 // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
 // Only enable it if you actually need to.
 const renderer = new THREE.WebGLRenderer({
@@ -252,6 +254,27 @@ light.shadow.camera.near = 1;
 // scene.add(new THREE.CameraHelper(light.shadow.camera));
 
 scene.add(new THREE.AmbientLight(0x666666));
+
+/*
+Set up sound effects
+todo: provide multiple formats
+todo: wake up audio context on first touch event on mobile
+*/
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+const audioContext = new AudioContext();
+const sfx = {};
+[
+	'sounds/bark.wav',
+	'sounds/laugh.wav'
+].forEach(src => {
+	const key = src.replace(/^.*\/([a-z]+)\.wav/, '$1');
+	sfx[key] = new SoundEffect({
+		src,
+		buttonContainer: '#sound-effects',
+		context: audioContext,
+		name: key
+	});
+});
 
 // Request animation frame loop function
 let vrDisplay = null;

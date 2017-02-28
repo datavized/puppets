@@ -30,6 +30,17 @@
 			z-index: 1;
 			background: white;
 		}
+
+		/*
+		todo: nicer layout and design. see #8;
+		*/
+		#sound-effects {
+			position: absolute;
+			margin: auto;
+			bottom: 10%;
+			padding: 10px;
+			z-index: 1;
+		}
 		</style>
 	</head>
 
@@ -41,6 +52,8 @@
 			<!-- <button id="reset">Reset</button> -->
 		</div>
 
+		<div id="sound-effects">
+		</div>
 	</body>
 
 	{% for script in scripts -%}
