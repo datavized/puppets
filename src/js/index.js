@@ -390,12 +390,12 @@ vrButton.addEventListener('click', () => {
 navigator.getVRDisplays().then(displays => {
 	if (displays.length > 0) {
 		vrDisplay = displays[0];
-
-		// Kick off the render loop.
-		vrDisplay.requestAnimationFrame(animate);
 	}
 	onVRDisplayPresentChange();
 });
+
+// Kick off the render loop.
+requestAnimationFrame(animate);
 
 onVRDisplayPresentChange();
 
