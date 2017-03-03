@@ -51,6 +51,7 @@
     "object-assign": "^4.0.1",
     "open-iconic": "^1.1.1",
     "raw-loader": "^0.5.1",
+    "recorderjs": "git+https://github.com/mattdiamond/Recorderjs.git",
     "safe-json-stringify": "^1.0.3",
     "style-loader": "^0.13.0",
     "three": "^0.84.0",

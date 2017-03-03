@@ -23,6 +23,7 @@ require('imports?THREE=three!three/examples/js/vr/ViveController');
 
 import SoundEffect from './sound-effect';
 import PuppetShow from './puppet-show';
+import PuppetShowRecorder from './puppet-show-recorder';
 
 // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
 // Only enable it if you actually need to.
@@ -312,6 +313,49 @@ document.getElementById('new-show').addEventListener('click', () => {
 	puppetShow.create();
 });
 
+/*
+Set up recording
+todo: nicer interface
+todo: drop-down to select microphone/input if there's more than one (i.e. Vive)
+
+todo: maybe load recorder code in a separate chunk, only on supported devices
+*/
+const puppetShowRecorder = new PuppetShowRecorder({
+	puppetShow,
+	audioContext
+});
+
+const recordButton = document.getElementById('record');
+recordButton.disabled = true;
+puppetShowRecorder
+	.on('ready', () => {
+		recordButton.disabled = false;
+	})
+	.on('error', () => {
+		recordButton.disabled = true;
+		// todo: report error. try again?
+	})
+	.on('start', () => {
+		recordButton.innerHTML = 'Stop';
+	})
+	.on('stop', () => {
+		recordButton.innerHTML = 'Reset';
+	})
+	.on('reset', () => {
+		recordButton.innerHTML = 'Record';
+	});
+
+recordButton.addEventListener('click', () => {
+	if (puppetShowRecorder.recording) {
+		puppetShowRecorder.stop();
+	} else if (!puppetShowRecorder.currentTime) {
+		puppetShowRecorder.start();
+	} else {
+		// todo: require confirmation?
+		puppetShowRecorder.reset();
+	}
+});
+
 // Request animation frame loop function
 let vrDisplay = null;
 let lastRender = 0;
@@ -349,6 +393,11 @@ function animate(timestamp) {
 		renderer.clear();
 		renderer.setViewport(0, 0, width, height);
 		renderer.render(scene, windowCamera);
+	}
+
+	// temp
+	if (puppetShowRecorder.recording) {
+		console.log(puppetShowRecorder.currentTime);
 	}
 
 	// Keep looping.
