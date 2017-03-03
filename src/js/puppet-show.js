@@ -35,7 +35,12 @@ firebase.initializeApp({
 
 const showsRef = firebase.database().ref('shows');
 
-function PuppetShow() {
+const storage = firebase.storage();
+const audioStorageRef = storage.ref().child('audio');
+
+function PuppetShow(options) {
+	const {audioContext} = options;
+
 	let showId = '';
 	let showRef = null;
 	let title = '';
@@ -45,7 +50,17 @@ function PuppetShow() {
 	- set/get methods for metadata (arbitrary key/value)
 	- methods for reading/creating/deleting events
 	- method for full reset/erase (should have confirmation in UI)
+	- track status of unsaved data and fire events accordingly
 	*/
+
+	/*
+	Audio assets stored as decoded buffers.
+	Each audio asset has a start time
+	For now, we don't foresee the need for other types of assets
+
+	maybe this is fine as a set?
+	*/
+	const audioAssets = new Map();
 
 	eventEmitter(this);
 
@@ -131,6 +146,58 @@ function PuppetShow() {
 		- fire event on success and/or return a promise?
 		- fire event on error (w/ reason?)
 		*/
+	};
+
+	this.addAudio = (encodedBlob, time) => {
+		if (!loaded) {
+			// todo: either wait to finish loading or throw error
+			return;
+		}
+
+		if (!time) {
+			time = 0;
+		}
+
+		const id = showRef.child('audio').push().key;
+		const assetRef = showRef.child('audio/' + id);
+		assetRef.set(time);
+
+		const audioObject = {
+			buffer: null,
+			time,
+			id
+		};
+
+		// todo: update ready-to-play state?
+
+		audioAssets.set(id, audioObject);
+
+		// todo: Decode and add to audioObject.buffer
+		const fileReader = new FileReader();
+		fileReader.onloadend = () => {
+			audioContext.decodeAudioData(fileReader.result).then(decodedData => {
+				audioObject.buffer = decodedData;
+				// todo: set up audio source or whatever
+				console.log('decoded audio');
+			});
+		};
+		fileReader.readAsArrayBuffer(encodedBlob);
+
+		/*
+		todo: monitor upload status
+		- see https://firebase.google.com/docs/storage/web/upload-files#manage_uploads
+		- cancel upload if puppetShow gets cleared before it's done
+		- fire event when file complete
+		- fire event when all pending uploads are complete
+		- do not cancel upload if a new show is loaded
+		- report error. Maybe try again?
+		*/
+		const audioFileRef = audioStorageRef.child(id + '.wav');
+		audioFileRef.put(encodedBlob).then(snapshot => {
+			console.log('saved audio file', id, snapshot);
+		});
+
+		// todo: add to list of events
 	};
 
 	Object.defineProperties(this, {

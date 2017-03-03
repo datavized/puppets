@@ -282,7 +282,9 @@ const sfx = {};
 	});
 });
 
-const puppetShow = new PuppetShow();
+const puppetShow = new PuppetShow({
+	audioContext
+});
 puppetShow
 	.on('load', () => {
 		console.log('loaded puppet show', puppetShow.id);
@@ -344,6 +346,8 @@ puppetShowRecorder
 	.on('reset', () => {
 		recordButton.innerHTML = 'Record';
 	});
+// todo: don't enable record button until puppetShow has loaded
+// todo: if puppetShow already has data, skip recording
 
 recordButton.addEventListener('click', () => {
 	if (puppetShowRecorder.recording) {

@@ -131,6 +131,10 @@ function PuppetShowRecorder(options) {
 		audioRecorder.stop();
 
 		// todo: save audio asset to puppetShow if not being cleared?
+		audioRecorder.exportWAV(blob => {
+			// todo: add time when we allow appending
+			puppetShow.addAudio(blob);
+		});
 
 		this.emit('stop');
 	};
