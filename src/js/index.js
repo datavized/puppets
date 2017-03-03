@@ -22,6 +22,7 @@ require('imports?THREE=three!three/examples/js/loaders/MTLLoader');
 require('imports?THREE=three!three/examples/js/vr/ViveController');
 
 import SoundEffect from './sound-effect';
+import PuppetShow from './puppet-show';
 
 // Setup three.js WebGL renderer. Note: Antialiasing is a big performance hit.
 // Only enable it if you actually need to.
@@ -280,11 +281,42 @@ const sfx = {};
 	});
 });
 
+const puppetShow = new PuppetShow();
+puppetShow
+	.on('load', () => {
+		console.log('loaded puppet show', puppetShow.id);
+		// todo: set stage and force redraw
+
+		window.location.hash = '#' + puppetShow.id;
+	})
+	.on('unload', id => {
+		console.log('unloaded puppet show', id);
+		// todo: clear stage and force redraw
+	})
+	.on('error', id => {
+		console.log('error loading puppet show', id);
+		// todo: clear stage, force redraw and report error
+	});
+
+// load from URL or create a new one
+const showIdResults = /^#([a-z0-9\-_]+)/i.exec(window.location.hash);
+if (showIdResults && showIdResults[1]) {
+	puppetShow.load(showIdResults[1]);
+
+	// todo: handle not found or other error
+} else {
+	puppetShow.create();
+}
+
+document.getElementById('new-show').addEventListener('click', () => {
+	puppetShow.create();
+});
+
 // Request animation frame loop function
 let vrDisplay = null;
 let lastRender = 0;
 function animate(timestamp) {
-	const delta = Math.min(timestamp - lastRender, 500);
+	// const delta = Math.min(timestamp - lastRender, 500);
 	lastRender = timestamp;
 
 	// Update VR headset position and apply to camera.
@@ -399,7 +431,7 @@ requestAnimationFrame(animate);
 
 onVRDisplayPresentChange();
 
-window.addEventListener('keydown', e => {
+window.addEventListener('keydown', event => {
 	if (vrDisplay) {
 		if (event.keyCode === 13) { // enter
 			vrDisplay.requestPresent([{source: renderer.domElement}]);

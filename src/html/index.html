@@ -23,12 +23,21 @@
 			top: 0;
 		}
 
-		#buttons {
+		#vr-buttons {
 			position: fixed;
 			top: 0;
 			right: 0;
 			z-index: 1;
 			background: white;
+		}
+
+		#show-buttons {
+			position: fixed;
+			bottom: 0;
+			left: 0;
+			z-index: 1;
+			background: rgba(100, 100, 100, 0.6);
+			padding: 10px;
 		}
 
 		/*
@@ -46,13 +55,17 @@
 
 	<body>
 
-		<div id="buttons">
+		<div id="vr-buttons">
 			<button id="fullscreen">Fullscreen</button>
 			<button id="vr">VR (WebVR/Mobile only)</button>
 			<!-- <button id="reset">Reset</button> -->
 		</div>
 
 		<div id="sound-effects">
+		</div>
+
+		<div id="show-buttons">
+			<button id="new-show">New Puppet Show</button>
 		</div>
 	</body>
 

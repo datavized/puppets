@@ -44,6 +44,10 @@ module.exports = function () {
 					'https://cdnjs.cloudflare.com/ajax/libs/three.js/' + THREE.REVISION + '/three.min.js'
 				);
 			}
+
+			const firebaseVersion = require('firebase').SDK_VERSION;
+			vars.scripts.unshift('https://www.gstatic.com/firebasejs/' + firebaseVersion + '/firebase.js');
+
 			return vars;
 		}))
 		.pipe(nunjucksRender({

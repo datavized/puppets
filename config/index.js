@@ -19,14 +19,17 @@ module.exports = (function () {
 	].join('\n');
 
 	const THREE = require('three');
-	const externals = {};
+	const externals = {
+		firebase: 'firebase'
+	};
 
 	// don't use external three.js if running a dev version
 	if (/^[0-9]+$/.test(THREE.REVISION)) {
 		externals.three = 'THREE';
 	} else {
 		console.warn('Building with three.js r' + THREE.REVISION);
-}
+	}
+
 	const common = {
 		module: {
 			preLoaders: [
