@@ -327,6 +327,8 @@ const puppetShowRecorder = new PuppetShowRecorder({
 	audioContext
 });
 
+const timecode = document.getElementById('timecode');
+
 const recordButton = document.getElementById('record');
 recordButton.disabled = true;
 puppetShowRecorder
@@ -345,6 +347,7 @@ puppetShowRecorder
 	})
 	.on('reset', () => {
 		recordButton.innerHTML = 'Record';
+		timecode.innerText = '0';
 	});
 // todo: don't enable record button until puppetShow has loaded
 // todo: if puppetShow already has data, skip recording
@@ -401,7 +404,9 @@ function animate(timestamp) {
 
 	// temp
 	if (puppetShowRecorder.recording) {
-		console.log(puppetShowRecorder.currentTime);
+		// todo: format time properly
+		timecode.innerText = puppetShowRecorder.currentTime.toFixed(2);
+		// todo: if in playback mode, show play time
 	}
 
 	// Keep looping.
