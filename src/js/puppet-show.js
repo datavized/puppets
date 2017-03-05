@@ -163,6 +163,7 @@ function PuppetShow(options) {
 
 		// erasing all media assets
 		audioAssets.clear();
+		showRef.child('events').remove();
 		showRef.child('audio').remove();
 		audioAssetsRef.delete()
 			.then(() => console.log('deleted audio files'))
@@ -171,6 +172,18 @@ function PuppetShow(options) {
 		Erasing audio files from Firebase will fail without proper authentication
 		or appropriate configuration.
 		*/
+	};
+
+	this.addEvent = (type, params, time) => {
+		if (!showRef) {
+			return;
+		}
+
+		showRef.child('events').push({
+			time,
+			type,
+			params
+		});
 	};
 
 	this.addAudio = (encodedBlob, time) => {

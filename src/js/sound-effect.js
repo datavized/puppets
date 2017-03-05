@@ -1,10 +1,6 @@
 'use strict';
 
 function SoundEffect(options) {
-	const buttonContainer = typeof options.buttonContainer === 'string' ?
-		document.querySelector(options.buttonContainer) :
-		options.buttonContainer;
-
 	const src = options.src;
 	const context = options.context;
 
@@ -63,13 +59,7 @@ function SoundEffect(options) {
 		}
 	};
 
-	/*
-	Use better-looking button design #8
-	*/
-	const button = document.createElement('button');
-	button.appendChild(document.createTextNode(options.name || 'Sound'));
-	button.addEventListener('click', this.play);
-	buttonContainer.appendChild(button);
+	this.name = options.name || 'Sound';
 }
 
 export default SoundEffect;

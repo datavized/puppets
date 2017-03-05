@@ -268,19 +268,6 @@ todo: wake up audio context on first touch event on mobile
 */
 const AudioContext = window.AudioContext || window.webkitAudioContext;
 const audioContext = new AudioContext();
-const sfx = {};
-[
-	'sounds/bark.wav',
-	'sounds/laugh.wav'
-].forEach(src => {
-	const key = src.replace(/^.*\/([a-z]+)\.wav/, '$1');
-	sfx[key] = new SoundEffect({
-		src,
-		buttonContainer: '#sound-effects',
-		context: audioContext,
-		name: key
-	});
-});
 
 const puppetShow = new PuppetShow({
 	audioContext
@@ -329,6 +316,37 @@ const puppetShowRecorder = new PuppetShowRecorder({
 
 const timecode = document.getElementById('timecode');
 
+const soundButtonContainer = document.querySelector('#sound-effects');
+const sfx = [];
+[
+	'sounds/bark.wav',
+	'sounds/laugh.wav'
+].forEach(src => {
+	const name = src.replace(/^.*\/([a-z]+)\.wav/, '$1');
+	const effect = new SoundEffect({
+		src,
+		context: audioContext,
+		name
+	});
+	sfx.push(effect);
+
+	/*
+	todo: Use better-looking button design #8
+	*/
+	const button = document.createElement('button');
+	button.appendChild(document.createTextNode(name || 'Sound'));
+	soundButtonContainer.appendChild(button);
+
+	button.addEventListener('click', () => {
+		effect.play();
+		if (puppetShowRecorder.recording) {
+			puppetShowRecorder.recordEvent('sound', {
+				name
+			});
+		}
+	});
+});
+
 const recordButton = document.getElementById('record');
 recordButton.disabled = true;
 puppetShowRecorder
@@ -341,6 +359,7 @@ puppetShowRecorder
 	})
 	.on('start', () => {
 		recordButton.innerHTML = 'Stop';
+		sfx.forEach(e => e.stop());
 	})
 	.on('stop', () => {
 		recordButton.innerHTML = 'Reset';
@@ -348,6 +367,7 @@ puppetShowRecorder
 	.on('reset', () => {
 		recordButton.innerHTML = 'Record';
 		timecode.innerText = '0';
+		sfx.forEach(e => e.stop());
 	});
 // todo: don't enable record button until puppetShow has loaded
 // todo: if puppetShow already has data, skip recording

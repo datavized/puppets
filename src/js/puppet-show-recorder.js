@@ -158,6 +158,14 @@ function PuppetShowRecorder(options) {
 		this.emit('reset');
 	};
 
+	this.recordEvent = (eventType, params, time) => {
+		if (recording || isNaN(time)) {
+			time = this.currentTime;
+		}
+
+		puppetShow.addEvent(eventType, params, time);
+	};
+
 	// todo: query recording devices
 	// todo: select audio recording device
 
