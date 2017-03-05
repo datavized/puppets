@@ -152,7 +152,8 @@ function PuppetShowRecorder(options) {
 		startTime = 0;
 		endTime = 0;
 
-		// todo: clear data out of puppetShow
+		// clear data out of puppetShow
+		puppetShow.erase();
 
 		this.emit('reset');
 	};

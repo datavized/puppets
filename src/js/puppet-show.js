@@ -43,6 +43,7 @@ function PuppetShow(options) {
 
 	let showId = '';
 	let showRef = null;
+	let audioAssetsRef = null;
 	let title = '';
 	let loaded = false;
 	/*
@@ -82,6 +83,8 @@ function PuppetShow(options) {
 			// todo: empty lists for assets and events (or have firebase do it?)
 		});
 
+		audioAssetsRef = audioStorageRef.child(showId);
+
 		loaded = true;
 		this.emit('load', showId);
 	};
@@ -114,6 +117,7 @@ function PuppetShow(options) {
 
 		showId = id;
 		showRef = showsRef.child(showId);
+		audioAssetsRef = audioStorageRef.child(showId);
 
 		showRef.once('value', snapshot => {
 			if (id !== showId) {
@@ -148,6 +152,27 @@ function PuppetShow(options) {
 		*/
 	};
 
+	/*
+	This is destructive and permanent. Do not call this without UI confirmation.
+	*/
+	this.erase = () => {
+		if (!showRef) {
+			return;
+		}
+		// todo: erase all events
+
+		// erasing all media assets
+		audioAssets.clear();
+		showRef.child('audio').remove();
+		audioAssetsRef.delete()
+			.then(() => console.log('deleted audio files'))
+			.catch(err => console.log('error deleting audio files', err));
+		/*
+		Erasing audio files from Firebase will fail without proper authentication
+		or appropriate configuration.
+		*/
+	};
+
 	this.addAudio = (encodedBlob, time) => {
 		if (!loaded) {
 			// todo: either wait to finish loading or throw error
@@ -176,6 +201,11 @@ function PuppetShow(options) {
 		const fileReader = new FileReader();
 		fileReader.onloadend = () => {
 			audioContext.decodeAudioData(fileReader.result).then(decodedData => {
+				if (!audioAssets.has(id)) {
+					// in case asset has been removed
+					return;
+				}
+
 				audioObject.buffer = decodedData;
 				// todo: set up audio source or whatever
 				console.log('decoded audio');
@@ -192,7 +222,7 @@ function PuppetShow(options) {
 		- do not cancel upload if a new show is loaded
 		- report error. Maybe try again?
 		*/
-		const audioFileRef = audioStorageRef.child(id + '.wav');
+		const audioFileRef = audioAssetsRef.child(id + '.wav');
 		audioFileRef.put(encodedBlob).then(snapshot => {
 			console.log('saved audio file', id, snapshot);
 		});
