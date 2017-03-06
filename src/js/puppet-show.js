@@ -160,19 +160,29 @@ function PuppetShow(options) {
 
 				audioAssets.set(audioId, audioObject);
 
+				/*
+				Abort at each step if audio asset is no longer valid
+				*/
+
+				function isInvalid() {
+					return id !== showId || !audioAssets.has(audioId);
+				}
+
 				const audioFileRef = audioAssetsRef.child(audioId + '.wav');
 				audioFileRef.getDownloadURL().then(url => {
 					// todo: load this as a SoundEffect?
 					// todo: adjust playable state?
 
-					if (id !== showId) {
-						// we've since unloaded this show
+					if (isInvalid()) {
 						return;
 					}
 
 					const xhr = new XMLHttpRequest();
 					xhr.responseType = 'arraybuffer';
 					xhr.onload = () => {
+						if (isInvalid()) {
+							return;
+						}
 						audioContext.decodeAudioData(xhr.response, decodedBuffer => {
 							audioObject.buffer = decodedBuffer;
 							console.log('loaded buffer', url, decodedBuffer);
@@ -271,11 +281,11 @@ function PuppetShow(options) {
 		// todo: Decode and add to audioObject.buffer
 		const fileReader = new FileReader();
 		fileReader.onloadend = () => {
+			if (!audioAssets.has(id)) {
+				// in case asset has been removed
+				return;
+			}
 			audioContext.decodeAudioData(fileReader.result).then(decodedData => {
-				if (!audioAssets.has(id)) {
-					// in case asset has been removed
-					return;
-				}
 
 				audioObject.buffer = decodedData;
 				// todo: set up audio source or whatever
