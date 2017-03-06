@@ -98,7 +98,7 @@ const stage = new THREE.Mesh(
 );
 stage.receiveShadow = true;
 stage.position.set(0, 0.25, -7);
-scene.add(stage);
+world.add(stage);
 
 let isPreviewing = false;
 screenCamera.position.y = 1.5;
