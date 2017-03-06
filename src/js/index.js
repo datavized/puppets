@@ -10,6 +10,7 @@ window.WebVRConfig = {
 
 const CHARACTER_SCALE = 1.5;
 const WORLD_SHRINK_SCALE = 1 / 10;
+const STAGE_HEIGHT = 1; // 1 for adults; 0.25 for kids? todo: adjustable
 
 const THREE = window.THREE = require('three');
 
@@ -51,6 +52,7 @@ scene.add(world);
 const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
 const screenCamera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 10000);
 let windowCamera = screenCamera;
+world.add(screenCamera);
 
 // Apply VR headset positional data to camera.
 const controls = new THREE.VRControls(camera);
@@ -97,8 +99,13 @@ const stage = new THREE.Mesh(
 	})
 );
 stage.receiveShadow = true;
-stage.position.set(0, 0.25, -7);
+stage.position.set(0, STAGE_HEIGHT, -7);
 world.add(stage);
+
+const stageBounds = new THREE.Box3();
+stageBounds.setFromObject(stage);
+stageBounds.min.y = stageBounds.max.y;
+stageBounds.max.y = Infinity;
 
 let isPreviewing = false;
 screenCamera.position.y = 1.5;
@@ -121,6 +128,7 @@ function updateEditingState() {
 
 	// todo: adjust this for kids!!
 	world.position.y = isEditing ? 0.6 : 0;
+	world.position.z = isEditing ? 7 * worldScale : 0;
 }
 
 function toggleEditing() {
@@ -141,6 +149,10 @@ for (let i = 0; i < 2; i++) {
 	controller.addEventListener('thumbpaddown', toggleEditing);
 }
 
+/*
+todo: we may remove this whole mess if we don't need the controllers
+...unless we use controllers for playback control?
+*/
 function loadController() {
 	if (!controllerGeometryPromise) {
 		const promises = [];
@@ -192,11 +204,13 @@ function loadModel(src) {
 	});
 }
 
+const puppets = [];
+
 Promise.all([
 	loadModel('models/chr_lady2.obj'),
-	loadModel('models/chr_beardo1.obj'),
+	loadModel('models/chr_beardo1.obj')/*,
 	loadModel('models/chr_goth1.obj'),
-	loadModel('models/chr_headphones.obj')
+	loadModel('models/chr_headphones.obj')*/
 ]).then(results => {
 	results.forEach((model, index) => {
 		const bbox = new THREE.Box3();
@@ -206,15 +220,8 @@ Promise.all([
 		// console.log(bbox.getSize());
 		model.scale.multiplyScalar(CHARACTER_SCALE);
 
-		// for now, set puppet on the floor where we can see it.
-		model.position.set(CHARACTER_SCALE * 1.1 * (index - results.length / 2), -bbox.min.y * CHARACTER_SCALE, -3);
+		model.position.y = -bbox.min.y * CHARACTER_SCALE;
 		model.rotation.y = Math.PI;
-
-		/*
-		placing model on stage
-		todo: make a "stage" sub-scene or something
-		*/
-		model.position.y += 0.5;
 
 		model.traverse(obj => {
 			if (obj.geometry) {
@@ -231,7 +238,14 @@ Promise.all([
 				}
 			}
 		});
-		world.add(model);
+
+		const puppet = new THREE.Object3D();
+		puppet.add(model);
+
+		puppet.visible = false;
+		puppets.push(puppet);
+
+		world.add(puppet);
 	});
 });
 
@@ -393,11 +407,35 @@ function animate(timestamp) {
 	// Update VR headset position and apply to camera.
 	controls.update();
 
-	controllers.forEach(c => {
+	controllers.forEach((c, i) => {
 		c.update();
-		if (c.visible && !c.userData.gamepad) {
-			c.userData.gamepad = c.getGamepad();
-			loadController().then(obj => c.add(obj.clone()));
+
+		// todo: only use controllers if editing
+		if (c.visible) {
+			if (!c.userData.gamepad) {
+				c.userData.gamepad = c.getGamepad();
+				// loadController().then(obj => c.add(obj.clone()));
+			}
+
+			let puppet = c.userData.puppet;
+			if (!puppet && puppets[i]) {
+				puppet = puppets[i];
+				c.userData.puppet = puppet;
+				puppet.visible = true;
+			}
+
+			if (puppet) {
+				// apply standing matrix
+				c.matrix.decompose(c.position, c.quaternion, c.scale);
+
+				// copy rotation
+				puppet.rotation.copy(c.rotation);
+
+				// copy position; adjust for world scale/position; constrain to stage
+				puppet.position.copy(c.position).sub(world.position).divide(world.scale);
+				puppet.position.clamp(stageBounds.min, stageBounds.max);
+				// todo: constrain puppet on all sides, not just bottom
+			}
 		}
 	});
 
