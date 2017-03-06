@@ -38,6 +38,10 @@ const showsRef = firebase.database().ref('shows');
 const storage = firebase.storage();
 const audioStorageRef = storage.ref().child('audio');
 
+function sortEvents(a, b) {
+	return a.time - b.time;
+}
+
 function PuppetShow(options) {
 	const {audioContext} = options;
 
@@ -62,6 +66,7 @@ function PuppetShow(options) {
 	maybe this is fine as a set?
 	*/
 	const audioAssets = new Map();
+	const events = [];
 
 	eventEmitter(this);
 
@@ -98,13 +103,15 @@ function PuppetShow(options) {
 		loaded = false;
 		/*
 		todo:
-		- clear show id
 		- reset metadata
 		- disable saving to or loading from Firebase
 		- stop playing (if we handle playback in here?)
 		- remove all events from list
 		- unload any audio or other media
 		*/
+
+		audioAssets.clear();
+		events.length = 0;
 
 		if (wasLoaded) {
 			this.emit('unload', id);
@@ -136,6 +143,52 @@ function PuppetShow(options) {
 			console.log('loaded', showId, showVal);
 
 			title = showVal.title || '';
+
+			events.push.apply(events,
+				Object.keys(showVal.events)
+					.map(key => showVal.events[key])
+					.sort(sortEvents)
+			);
+
+			// start loading recorded audio files
+			Object.keys(showVal.audio).forEach(audioId => {
+				const audioObject = {
+					buffer: null,
+					time: showVal.audio[audioId],
+					id: audioId
+				};
+
+				audioAssets.set(audioId, audioObject);
+
+				const audioFileRef = audioAssetsRef.child(audioId + '.wav');
+				audioFileRef.getDownloadURL().then(url => {
+					// todo: load this as a SoundEffect?
+					// todo: adjust playable state?
+
+					if (id !== showId) {
+						// we've since unloaded this show
+						return;
+					}
+
+					const xhr = new XMLHttpRequest();
+					xhr.responseType = 'arraybuffer';
+					xhr.onload = () => {
+						audioContext.decodeAudioData(xhr.response, decodedBuffer => {
+							audioObject.buffer = decodedBuffer;
+							console.log('loaded buffer', url, decodedBuffer);
+						});
+					};
+					xhr.onerror = e => {
+						// keep trying
+						console.warn('Error loading audio', url, e);
+					};
+					xhr.open('GET', url, true);
+					xhr.send();
+				}).catch(err => {
+					console.error('Error accessing file', err);
+				});
+			});
+
 			loaded = true;
 
 			this.emit('load', showId);
@@ -159,10 +212,12 @@ function PuppetShow(options) {
 		if (!showRef) {
 			return;
 		}
-		// todo: erase all events
 
-		// erasing all media assets
+		// clear events and assets from local memory
 		audioAssets.clear();
+		events.length = 0;
+
+		// erasing all media assets and events from server
 		showRef.child('events').remove();
 		showRef.child('audio').remove();
 		audioAssetsRef.delete()
@@ -179,11 +234,14 @@ function PuppetShow(options) {
 			return;
 		}
 
-		showRef.child('events').push({
+		const event = {
 			time,
 			type,
 			params
-		});
+		};
+
+		events.push(event);
+		showRef.child('events').push(event);
 	};
 
 	this.addAudio = (encodedBlob, time) => {
@@ -246,6 +304,9 @@ function PuppetShow(options) {
 	Object.defineProperties(this, {
 		id: {
 			get: () => showId
+		},
+		events: {
+			value: events
 		},
 		title: {
 			get: () => title,
