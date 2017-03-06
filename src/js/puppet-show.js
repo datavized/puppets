@@ -145,13 +145,13 @@ function PuppetShow(options) {
 			title = showVal.title || '';
 
 			events.push.apply(events,
-				Object.keys(showVal.events)
+				Object.keys(showVal.events || {})
 					.map(key => showVal.events[key])
 					.sort(sortEvents)
 			);
 
 			// start loading recorded audio files
-			Object.keys(showVal.audio).forEach(audioId => {
+			Object.keys(showVal.audio || {}).forEach(audioId => {
 				const audioObject = {
 					buffer: null,
 					time: showVal.audio[audioId],
