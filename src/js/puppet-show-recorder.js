@@ -35,6 +35,7 @@ function PuppetShowRecorder(options) {
 	const audioInputDevices = [];
 
 	// state
+	let enabled = false;
 	let ready = false;
 	let recording = false;
 	let startTime = 0;
@@ -45,8 +46,28 @@ function PuppetShowRecorder(options) {
 	let audioSource = null;
 	let audioRecorder = null;
 
+	function destroyAudioRecorder() {
+		if (audioRecorder) {
+			audioRecorder.stop();
+			audioRecorder.clear();
+
+			try {
+				if (audioSource) {
+					audioSource.disconnect(audioRecorder.node);
+				}
+				audioRecorder.node.connect(audioContext.destination);
+			} catch (e) {}
+
+			audioRecorder = null;
+		}
+	}
+
 	function getAudioStream() {
 		navigator.mediaDevices.getUserMedia(recordConstraints).then(stream => {
+			if (!enabled) {
+				return;
+			}
+
 			console.log('Accessed Microphone');
 			// todo: update UI to show recording state
 
@@ -58,11 +79,8 @@ function PuppetShowRecorder(options) {
 			// audioSource.connect(zeroGain);
 			// zeroGain.connect(audioContext.destination);
 
-			if (audioRecorder) {
-				audioRecorder.stop();
-				audioRecorder.clear();
-				// todo: what happens if we're recording?
-			}
+			// todo: what happens if we're recording?
+			destroyAudioRecorder();
 
 			audioRecorder = new Recorder(audioSource, {
 				numChannels: 1
@@ -80,7 +98,11 @@ function PuppetShowRecorder(options) {
 		});
 	}
 
-	this.init = () => {
+	this.enable = () => {
+		if (enabled) {
+			return;
+		}
+
 		navigator.mediaDevices.enumerateDevices().then(devices => {
 			audioInputDevices.length = 0;
 			devices.forEach(dev => {
@@ -98,10 +120,31 @@ function PuppetShowRecorder(options) {
 			// todo: get audio stream only if device changed and not recording
 			getAudioStream();
 		});
+
+		enabled = true;
+	};
+
+	this.disable = () => {
+		if (!enabled) {
+			return;
+		}
+
+		this.stop();
+
+		// clean up audioRecorder
+		destroyAudioRecorder();
+
+		// turn off microphone
+		if (audioSource) {
+			audioSource.mediaStream.getTracks().forEach(track => track.stop());
+			audioSource = null;
+		}
+
+		enabled = false;
 	};
 
 	this.start = () => {
-		if (recording) {
+		if (recording || !enabled) {
 			// todo: throw error? or emit error event?
 			return;
 		}
@@ -121,7 +164,7 @@ function PuppetShowRecorder(options) {
 	};
 
 	this.stop = () => {
-		if (!recording) {
+		if (!recording || !enabled) {
 			// todo: throw error? or emit error event?
 			return;
 		}
@@ -142,9 +185,9 @@ function PuppetShowRecorder(options) {
 	this.reset = () => {
 		this.stop();
 
-		if (!this.currentTime) {
-			return;
-		}
+		// if (!this.currentTime) {
+		// 	return;
+		// }
 
 		if (audioRecorder) {
 			audioRecorder.clear();
@@ -159,6 +202,10 @@ function PuppetShowRecorder(options) {
 	};
 
 	this.recordEvent = (eventType, params, time) => {
+		if (!enabled) {
+			return;
+		}
+
 		if (recording || isNaN(time)) {
 			time = this.currentTime;
 		}
@@ -166,14 +213,15 @@ function PuppetShowRecorder(options) {
 		puppetShow.addEvent(eventType, params, time);
 	};
 
-	// todo: query recording devices
-	// todo: select audio recording device
-
-	this.init();
+	// todo: allow querying of recording devices
+	// todo: allow select audio recording device
 
 	Object.defineProperties(this, {
-		ready: {
+		enabled: {
 			get: () => ready
+		},
+		ready: {
+			get: () => enabled && ready
 		},
 		currentTime: {
 			get: () => ((recording ? now() : endTime) - startTime) / 1000
