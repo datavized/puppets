@@ -44,11 +44,8 @@
 		todo: nicer layout and design. see #8;
 		*/
 		#sound-effects {
-			position: absolute;
 			margin: auto;
-			bottom: 10%;
-			padding: 10px;
-			z-index: 1;
+			padding: 10px 0;
 		}
 
 		</style>
@@ -62,13 +59,17 @@
 			<!-- <button id="reset">Reset</button> -->
 		</div>
 
-		<div id="sound-effects">
-		</div>
-
 		<div id="show-buttons">
-			<button id="new-show">New Puppet Show</button>
-			<button id="record">Record</button>
+			<div id="sound-effects">
+			</div>
+
+			<button id="play">Play</button>
 			<span id="timecode">0:00</span>
+			<button id="new-show">New Puppet Show</button>
+			<label for="editing" id="editing-label"><input type="checkbox" id="editing"/> Edit</label>
+			<span id="edit-buttons">
+				<button id="record">Record</button>
+			</span>
 		</div>
 	</body>
 

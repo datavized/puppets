@@ -120,22 +120,6 @@ function togglePreview() {
 	updatePreviewing();
 }
 
-// editing state
-let isEditing = false;
-function updateEditingState() {
-	const worldScale = isEditing ? WORLD_SHRINK_SCALE : 1;
-	world.scale.set(worldScale, worldScale, worldScale);
-
-	// todo: adjust this for kids!!
-	world.position.y = isEditing ? 0.6 : 0;
-	world.position.z = isEditing ? 7 * worldScale : 0;
-}
-
-function toggleEditing() {
-	isEditing = !isEditing;
-	updateEditingState();
-}
-
 // set up controllers
 let controllerGeometryPromise;
 const controllers = [];
@@ -146,7 +130,7 @@ for (let i = 0; i < 2; i++) {
 	scene.add(controller);
 	controllers.push(controller);
 
-	controller.addEventListener('thumbpaddown', toggleEditing);
+	// controller.addEventListener('thumbpaddown', toggleEditing);
 }
 
 /*
@@ -275,6 +259,9 @@ light.shadow.camera.near = 1;
 
 scene.add(new THREE.AmbientLight(0x666666));
 
+const timecode = document.getElementById('timecode');
+const editingCheckbox = document.getElementById('editing');
+
 /*
 Set up sound effects
 todo: provide multiple formats
@@ -286,51 +273,7 @@ const audioContext = new AudioContext();
 const puppetShow = new PuppetShow({
 	audioContext
 });
-puppetShow
-	.on('load', () => {
-		console.log('loaded puppet show', puppetShow.id);
-		// todo: set stage and force redraw
 
-		window.location.hash = '#' + puppetShow.id;
-	})
-	.on('unload', id => {
-		console.log('unloaded puppet show', id);
-		// todo: clear stage and force redraw
-	})
-	.on('error', id => {
-		console.log('error loading puppet show', id);
-		// todo: clear stage, force redraw and report error
-	});
-
-// load from URL or create a new one
-const showIdResults = /^#([a-z0-9\-_]+)/i.exec(window.location.hash);
-if (showIdResults && showIdResults[1]) {
-	puppetShow.load(showIdResults[1]);
-
-	// todo: handle not found or other error
-} else {
-	puppetShow.authenticate().then(() => puppetShow.create());
-}
-
-document.getElementById('new-show').addEventListener('click', () => {
-	puppetShow.authenticate().then(() => puppetShow.create());
-});
-
-/*
-Set up recording
-todo: nicer interface
-todo: drop-down to select microphone/input if there's more than one (i.e. Vive)
-
-todo: maybe load recorder code in a separate chunk, only on supported devices
-*/
-const puppetShowRecorder = new PuppetShowRecorder({
-	puppetShow,
-	audioContext
-});
-
-const timecode = document.getElementById('timecode');
-
-const soundButtonContainer = document.querySelector('#sound-effects');
 const sfx = [];
 [
 	'sounds/bark.wav',
@@ -343,64 +286,175 @@ const sfx = [];
 		name
 	});
 	sfx.push(effect);
-
-	/*
-	todo: Use better-looking button design #8
-	*/
-	const button = document.createElement('button');
-	button.appendChild(document.createTextNode(name || 'Sound'));
-	soundButtonContainer.appendChild(button);
-
-	button.addEventListener('click', () => {
-		effect.play();
-		if (puppetShowRecorder.recording) {
-			puppetShowRecorder.recordEvent('sound', {
-				name
-			});
-		}
-	});
 });
 
-const recordButton = document.getElementById('record');
-recordButton.disabled = true;
-puppetShowRecorder
-	.on('ready', () => {
-		recordButton.disabled = false;
-	})
-	.on('error', () => {
-		recordButton.disabled = true;
-		// todo: report error. try again?
-	})
-	.on('start', () => {
-		recordButton.innerHTML = 'Stop';
-		sfx.forEach(e => e.stop());
-	})
-	.on('stop', () => {
-		recordButton.innerHTML = 'Reset';
-	})
-	.on('reset', () => {
-		recordButton.innerHTML = 'Record';
-		timecode.innerText = '0';
-		sfx.forEach(e => e.stop());
-	});
-// todo: don't enable record button until puppetShow has loaded
-// todo: if puppetShow already has data, skip recording
 
-// todo: enable this button once authenticated
-recordButton.addEventListener('click', () => {
-	if (!puppetShow.isCreator) {
-		console.warn('Cannot edit show. Not the creator.');
+// editing state
+let isEditing = false;
+let editorInitialized = false;
+let puppetShowRecorder;
+
+function updateButtons() {
+	document.getElementById('edit-buttons').style.display = isEditing ? '' : 'none';
+	document.getElementById('sound-effects').style.display = isEditing ? '' : 'none';
+	document.getElementById('editing-label').style.display = puppetShow.isCreator ? '' : 'none';
+
+	if (isEditing) {
+		const recordButton = document.getElementById('record');
+		recordButton.disabled = !(puppetShowRecorder && puppetShowRecorder.ready);
+
+		if (puppetShowRecorder && puppetShowRecorder.recording) {
+			recordButton.innerHTML = 'Stop';
+		} else if (puppetShow.duration === 0) {
+			recordButton.innerHTML = 'Record';
+		} else {
+			recordButton.innerHTML = 'Reset';
+		}
+	}
+
+
+}
+
+function initializeEditor() {
+	if (editorInitialized) {
 		return;
 	}
-	if (puppetShowRecorder.recording) {
-		puppetShowRecorder.stop();
-	} else if (!puppetShowRecorder.currentTime) {
-		puppetShowRecorder.start();
-	} else {
-		// todo: require confirmation?
-		puppetShowRecorder.reset();
+
+	/*
+	Set up recording
+	todo: nicer interface
+	todo: drop-down to select microphone/input if there's more than one (i.e. Vive)
+
+	todo: maybe load recorder code in a separate chunk, only on supported devices
+	*/
+	puppetShowRecorder = new PuppetShowRecorder({
+		puppetShow,
+		audioContext
+	});
+
+	const recordButton = document.getElementById('record');
+	recordButton.disabled = true;
+	puppetShowRecorder
+		.on('ready', updateButtons)
+		.on('error', () => {
+			updateButtons();
+			// todo: report error. try again?
+		})
+		.on('start', () => {
+			recordButton.innerHTML = 'Stop';
+			updateButtons();
+			sfx.forEach(e => e.stop());
+		})
+		.on('stop', updateButtons)
+		.on('reset', () => {
+			updateButtons();
+			timecode.innerText = '0';
+			sfx.forEach(e => e.stop());
+		});
+	// todo: don't enable record button until puppetShow has loaded
+	// todo: if puppetShow already has data, skip recording
+
+	// todo: enable this button once authenticated
+	recordButton.addEventListener('click', () => {
+		if (!puppetShow.isCreator) {
+			console.warn('Cannot edit show. Not the creator.');
+			return;
+		}
+		if (puppetShowRecorder.recording) {
+			puppetShowRecorder.stop();
+		} else if (!puppetShow.duration) {
+			puppetShowRecorder.start();
+		} else {
+			// todo: require confirmation?
+			puppetShowRecorder.reset();
+		}
+	});
+
+	// sound effect buttons
+	const soundButtonContainer = document.querySelector('#sound-effects');
+	sfx.forEach(effect => {
+		const name = effect.name;
+		/*
+		todo: Use better-looking button design #8
+		*/
+		const button = document.createElement('button');
+		button.appendChild(document.createTextNode(name || 'Sound'));
+		soundButtonContainer.appendChild(button);
+
+		button.addEventListener('click', () => {
+			effect.play();
+			if (puppetShowRecorder.recording) {
+				puppetShowRecorder.recordEvent('sound', {
+					name
+				});
+			}
+		});
+	});
+
+	editorInitialized = true;
+}
+
+function updateEditingState() {
+	/*
+	3D Scene adjustments for editing
+	*/
+	const worldScale = isEditing ? WORLD_SHRINK_SCALE : 1;
+	world.scale.set(worldScale, worldScale, worldScale);
+
+	// todo: adjust this for kids!!
+	world.position.y = isEditing ? 0.6 : 0;
+	world.position.z = isEditing ? 7 * worldScale : 0;
+
+	/*
+	DOM and interactions for editing
+	*/
+
+	if (isEditing) {
+		initializeEditor();
+		puppetShowRecorder.enable();
+	} else if (puppetShowRecorder) {
+		puppetShowRecorder.disable();
 	}
-});
+
+	// temp
+	editingCheckbox.checked = isEditing;
+	updateButtons();
+}
+
+// function toggleEditing() {
+// 	isEditing = !isEditing && puppetShow.isCreator;
+// 	updateEditingState();
+// }
+
+function startEditing() {
+	isEditing = puppetShow.isCreator;
+	updateEditingState();
+}
+
+function stopEditing() {
+	isEditing = false;
+	updateEditingState();
+}
+
+puppetShow
+	.on('load', () => {
+		console.log('loaded puppet show', puppetShow.id);
+		// todo: set stage and force redraw
+
+		isEditing = puppetShow.isCreator;
+		updateEditingState();
+
+		window.location.hash = '#' + puppetShow.id;
+	})
+	.on('unload', id => {
+		console.log('unloaded puppet show', id);
+		// todo: clear stage and force redraw
+	})
+	.on('error', id => {
+		console.log('error loading puppet show', id);
+		// todo: clear stage, force redraw and report error
+	});
+
 
 // Request animation frame loop function
 let vrDisplay = null;
@@ -466,7 +520,7 @@ function animate(timestamp) {
 	}
 
 	// temp
-	if (puppetShowRecorder.recording) {
+	if (puppetShowRecorder && puppetShowRecorder.recording) {
 		// todo: format time properly
 		timecode.innerText = puppetShowRecorder.currentTime.toFixed(2);
 		// todo: if in playback mode, show play time
@@ -560,9 +614,31 @@ window.addEventListener('keydown', event => {
 			vrDisplay.exitPresent();
 		}
 	}
-	if (event.keyCode === 32) { // space
-		toggleEditing();
-	} else if (event.keyCode === 86) { // v
+	// if (event.keyCode === 32) { // space
+	// 	toggleEditing();
+	// } else
+	if (event.keyCode === 86) { // v
 		togglePreview();
 	}
 }, true);
+
+// load from URL or create a new one
+const showIdResults = /^#([a-z0-9\-_]+)/i.exec(window.location.hash);
+if (showIdResults && showIdResults[1]) {
+	puppetShow.load(showIdResults[1]);
+
+	// todo: handle not found or other error
+} else {
+	puppetShow.authenticate().then(() => puppetShow.create());
+}
+
+document.getElementById('new-show').addEventListener('click', () => {
+	puppetShow.authenticate().then(() => puppetShow.create());
+});
+
+editingCheckbox.addEventListener('change', () => {
+	isEditing = puppetShow.isCreator && editingCheckbox.checked;
+	updateEditingState();
+});
+
+updateEditingState();
