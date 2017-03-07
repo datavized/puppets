@@ -4,6 +4,8 @@ import Recorder from 'recorderjs';
 import eventEmitter from 'event-emitter';
 import now from './now';
 
+const hmdLabelRegex = /vive/i;
+
 function PuppetShowRecorder(options) {
 	/*
 	todo:
@@ -104,15 +106,26 @@ function PuppetShowRecorder(options) {
 		}
 
 		navigator.mediaDevices.enumerateDevices().then(devices => {
-			audioInputDevices.length = 0;
+			const hmdGroupIds = {};
 			devices.forEach(dev => {
 				if (dev.kind === 'audioinput') {
 					audioInputDevices.push(dev);
 
-					// todo: prioritize Vive or Rift mic
+					// select default device
 					if (dev.deviceId === 'default' || !audioInputDevice) {
 						audioInputDevice = dev;
 					}
+				}
+
+				if (hmdLabelRegex.test(dev.label)) {
+					hmdGroupIds[dev.groupId] = true;
+				}
+			});
+
+			// if a microphone device is in the same group as a HMD output, use it
+			audioInputDevices.forEach(dev => {
+				if (hmdGroupIds[dev.groupId]) {
+					audioInputDevice = dev;
 				}
 			});
 
