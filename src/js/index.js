@@ -470,7 +470,7 @@ function animate(timestamp) {
 		c.update();
 
 		// todo: only use controllers if editing
-		if (c.visible) {
+		if (c.visible && isEditing) {
 			if (!c.userData.gamepad) {
 				c.userData.gamepad = c.getGamepad();
 				// loadController().then(obj => c.add(obj.clone()));
@@ -494,6 +494,24 @@ function animate(timestamp) {
 				puppet.position.copy(c.position).sub(world.position).divide(world.scale);
 				puppet.position.clamp(stageBounds.min, stageBounds.max);
 				// todo: constrain puppet on all sides, not just bottom
+
+				if (puppetShowRecorder && puppetShowRecorder.recording) {
+					const pos = puppet.position;
+					const rot = puppet.rotation;
+					puppetShowRecorder.recordEvent('puppet', {
+						puppet: i,
+						position: {
+							x: pos.x,
+							y: pos.y,
+							z: pos.z
+						},
+						rotation: {
+							x: rot.x,
+							y: rot.y,
+							z: rot.z
+						}
+					});
+				}
 			}
 		}
 	});
