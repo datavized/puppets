@@ -108,6 +108,7 @@ function PuppetShow(options) {
 	let audioAssetsRef = null;
 	let title = '';
 	let loaded = false;
+	let duration = 0;
 	/*
 	todo:
 	- set/get methods for metadata (arbitrary key/value)
@@ -169,6 +170,7 @@ function PuppetShow(options) {
 		showCreatorId = '';
 		showRef = null;
 		loaded = false;
+		duration = 0;
 		/*
 		todo:
 		- reset metadata
@@ -211,6 +213,8 @@ function PuppetShow(options) {
 			console.log('loaded', showId, showVal);
 
 			title = showVal.title || '';
+			showCreatorId = showVal.creator;
+			duration = Math.max(duration, showVal.duration || 0);
 
 			events.push.apply(events,
 				Object.keys(showVal.events || {})
@@ -254,6 +258,8 @@ function PuppetShow(options) {
 						audioContext.decodeAudioData(xhr.response, decodedBuffer => {
 							audioObject.buffer = decodedBuffer;
 							console.log('loaded buffer', url, decodedBuffer);
+
+							duration = Math.max(duration, audioObject.time + decodedBuffer.duration);
 						});
 					};
 					xhr.onerror = e => {
@@ -263,7 +269,7 @@ function PuppetShow(options) {
 					xhr.open('GET', url, true);
 					xhr.send();
 				}).catch(err => {
-					console.error('Error accessing file', err);
+					console.error('Error accessing file', err, auth.currentUser);
 				});
 			});
 
@@ -299,6 +305,7 @@ function PuppetShow(options) {
 		// clear events and assets from local memory
 		audioAssets.clear();
 		events.length = 0;
+		duration = 0;
 
 		// erasing all media assets and events from server
 		showRef.child('events').remove();
@@ -368,11 +375,14 @@ function PuppetShow(options) {
 				// in case asset has been removed
 				return;
 			}
-			audioContext.decodeAudioData(fileReader.result).then(decodedData => {
+			audioContext.decodeAudioData(fileReader.result).then(decodedBuffer => {
 
-				audioObject.buffer = decodedData;
+				audioObject.buffer = decodedBuffer;
 				// todo: set up audio source or whatever
 				console.log('decoded audio');
+
+				duration = Math.max(duration, audioObject.time + decodedBuffer.duration);
+				showRef.child('duration').set(duration);
 			});
 		};
 		fileReader.readAsArrayBuffer(encodedBlob);
@@ -397,6 +407,9 @@ function PuppetShow(options) {
 	Object.defineProperties(this, {
 		id: {
 			get: () => showId
+		},
+		duration: {
+			get: () => duration
 		},
 		isCreator: {
 			get: () => !!showId && !!userId && userId === showCreatorId
