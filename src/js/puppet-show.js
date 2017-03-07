@@ -33,6 +33,63 @@ firebase.initializeApp({
 	messagingSenderId: '38391551003'
 });
 
+/*
+Firebase anonymous authorization
+*/
+const auth = firebase.auth();
+const authCallbacks = [];
+let currentUser = auth.currentUser;
+let userId = currentUser && currentUser.uid || '';
+let signInRequested = true;
+
+function attemptSignIn() {
+	if (!signInRequested) {
+		signInRequested = true;
+		auth.signInAnonymously().catch(err => {
+			console.warn('Failed to sign in anonymously', err.code, err.message);
+			signInRequested = false;
+		});
+	}
+}
+
+auth.onAuthStateChanged(user => {
+	signInRequested = false;
+	if (user === currentUser) {
+		if (!user && authCallbacks.length) {
+			attemptSignIn();
+		}
+
+		// no change
+		return;
+	}
+
+	currentUser = user;
+	if (user) {
+		console.log('User authenticated', user.toJSON());
+		userId = user.uid;
+
+		while (authCallbacks.length) {
+			const cb = authCallbacks.shift();
+			cb(user);
+		}
+	} else {
+		console.log('User signed out');
+		userId = '';
+	}
+});
+
+function authenticate() {
+	return new Promise(resolve => {
+		if (currentUser) {
+			resolve(currentUser);
+			return;
+		}
+
+		authCallbacks.push(resolve);
+		attemptSignIn();
+	});
+}
+
 const showsRef = firebase.database().ref('shows');
 
 const storage = firebase.storage();
@@ -47,6 +104,7 @@ function PuppetShow(options) {
 
 	let showId = '';
 	let showRef = null;
+	let showCreatorId = '';
 	let audioAssetsRef = null;
 	let title = '';
 	let loaded = false;
@@ -70,10 +128,18 @@ function PuppetShow(options) {
 
 	eventEmitter(this);
 
+	this.authenticate = authenticate;
+
 	this.create = () => {
+		if (!userId) {
+			console.warn('Cannot create a new show if not authenticated');
+			return;
+		}
+
 		this.unload();
 
 		showId = showsRef.push().key;
+		showCreatorId = userId;
 
 		showRef = showsRef.child(showId);
 		showRef.set({
@@ -83,7 +149,8 @@ function PuppetShow(options) {
 			// todo: any additional metadata
 			// todo: see if Firebase can set time stamps on server?
 			createTime: ServerValue.TIMESTAMP,
-			modifyTime: ServerValue.TIMESTAMP
+			modifyTime: ServerValue.TIMESTAMP,
+			creator: userId
 
 			// todo: empty lists for assets and events (or have firebase do it?)
 		});
@@ -99,6 +166,7 @@ function PuppetShow(options) {
 		const wasLoaded = loaded;
 
 		showId = '';
+		showCreatorId = '';
 		showRef = null;
 		loaded = false;
 		/*
@@ -223,6 +291,11 @@ function PuppetShow(options) {
 			return;
 		}
 
+		if (!userId || userId !== showCreatorId) {
+			console.warn('Cannot erase show if not authenticated as creator');
+			return;
+		}
+
 		// clear events and assets from local memory
 		audioAssets.clear();
 		events.length = 0;
@@ -244,6 +317,11 @@ function PuppetShow(options) {
 			return;
 		}
 
+		if (!userId || userId !== showCreatorId) {
+			console.warn('Cannot edit show if not authenticated as creator');
+			return;
+		}
+
 		const event = {
 			time,
 			type,
@@ -257,6 +335,11 @@ function PuppetShow(options) {
 	this.addAudio = (encodedBlob, time) => {
 		if (!loaded) {
 			// todo: either wait to finish loading or throw error
+			return;
+		}
+
+		if (!userId || userId !== showCreatorId) {
+			console.warn('Cannot edit show if not authenticated as creator');
 			return;
 		}
 
@@ -314,6 +397,15 @@ function PuppetShow(options) {
 	Object.defineProperties(this, {
 		id: {
 			get: () => showId
+		},
+		isCreator: {
+			get: () => !!showId && !!userId && userId === showCreatorId
+		},
+		userId: {
+			get: () => userId
+		},
+		showCreatorId: {
+			get: () => showCreatorId
 		},
 		events: {
 			value: events

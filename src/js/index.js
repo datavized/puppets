@@ -309,11 +309,11 @@ if (showIdResults && showIdResults[1]) {
 
 	// todo: handle not found or other error
 } else {
-	puppetShow.create();
+	puppetShow.authenticate().then(() => puppetShow.create());
 }
 
 document.getElementById('new-show').addEventListener('click', () => {
-	puppetShow.create();
+	puppetShow.authenticate().then(() => puppetShow.create());
 });
 
 /*
@@ -386,7 +386,12 @@ puppetShowRecorder
 // todo: don't enable record button until puppetShow has loaded
 // todo: if puppetShow already has data, skip recording
 
+// todo: enable this button once authenticated
 recordButton.addEventListener('click', () => {
+	if (!puppetShow.isCreator) {
+		console.warn('Cannot edit show. Not the creator.');
+		return;
+	}
 	if (puppetShowRecorder.recording) {
 		puppetShowRecorder.stop();
 	} else if (!puppetShowRecorder.currentTime) {
