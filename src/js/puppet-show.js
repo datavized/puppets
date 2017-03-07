@@ -308,6 +308,7 @@ function PuppetShow(options) {
 		duration = 0;
 
 		// erasing all media assets and events from server
+		showRef.child('duration').set(0);
 		showRef.child('events').remove();
 		showRef.child('audio').remove();
 		audioAssetsRef.delete()
@@ -337,6 +338,9 @@ function PuppetShow(options) {
 
 		events.push(event);
 		showRef.child('events').push(event);
+
+		duration = Math.max(duration, time);
+		showRef.child('duration').set(duration);
 	};
 
 	this.addAudio = (encodedBlob, time) => {
