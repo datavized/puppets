@@ -100,6 +100,21 @@ function sortEvents(a, b) {
 	return a.time - b.time;
 }
 
+function bulkPush(ref, array, max) {
+	const batch = {};
+	if (!max) {
+		max = Infinity;
+	}
+	let i = 0;
+	for (; i < max && array.length; i++) {
+		const value = array.shift();
+		const pushId = ref.push().key;
+		batch[pushId] = value;
+	}
+	ref.update(batch);
+	console.log('Flushed', i, 'items to firebase');
+}
+
 function PuppetShow(options) {
 	const me = this;
 	const {audioContext} = options;
@@ -137,6 +152,26 @@ function PuppetShow(options) {
 	*/
 	const audioAssets = new Map();
 	const events = [];
+
+	// pushing events to Firebase is slow, so batch them up
+	const eventsPushQueue = [];
+	let lastNewEventTime = 0;
+	let modifyTimeStamp = ServerValue.TIMESTAMP;
+	let pushTimeout = 0;
+
+	function flushPushQueue() {
+		clearTimeout(pushTimeout);
+
+		if (eventsPushQueue.length) {
+			// only push once we haven't received any events in a while
+			if (now() - lastNewEventTime > 150) {
+				bulkPush(showRef.child('events'), eventsPushQueue, 30);
+				showRef.child('duration').set(duration);
+				showRef.child('modifyTime').set(modifyTimeStamp);
+			}
+			pushTimeout = setTimeout(flushPushQueue, 200);
+		}
+	}
 
 	function checkReady() {
 		if (!ready && !assetsToLoad && loaded) {
@@ -331,6 +366,7 @@ function PuppetShow(options) {
 		this.rewind();
 
 		// clear events and assets from local memory
+		eventsPushQueue.length = 0;
 		events.length = 0;
 		duration = 0;
 		assetsToLoad = 0;
@@ -383,15 +419,16 @@ function PuppetShow(options) {
 
 		const isLastEvent = !events.length || events[events.length - 1].time <= event.time;
 		events.push(event);
-		showRef.child('events').push(event);
+		eventsPushQueue.push(event);
+		lastNewEventTime = now();
+		flushPushQueue();
 
 		if (!isLastEvent) {
 			events.sort(sortEvents);
 		}
 
 		duration = Math.max(duration, time + (dur || 0));
-		showRef.child('duration').set(duration);
-		showRef.child('modifyTime').set(ServerValue.TIMESTAMP);
+		modifyTimeStamp = ServerValue.TIMESTAMP;
 	};
 
 	this.addAudio = (encodedBlob, dur, time) => {
