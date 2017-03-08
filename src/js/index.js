@@ -274,6 +274,8 @@ const puppetShow = new PuppetShow({
 	audioContext
 });
 
+const recordedSounds = new Map();
+const currentSounds = new Set();
 const sfx = new Map();
 [
 	'sounds/bark.wav',
@@ -449,6 +451,34 @@ function stopEditing() {
 	updateEditingState();
 }
 
+function playSoundEvent(event) {
+	if (!puppetShow.playing) {
+		// don't play sounds while we're paused
+		return true;
+	}
+
+	// todo: add to list of currently active audio tracks so we can resume
+
+	const name = event.params.name;
+	const time = event.time;
+	const duration = event.duration;
+	const currentTime = puppetShow.currentTime;
+
+	const timeLeft = Math.max(0, time + duration - currentTime);
+	if (timeLeft > 0) {
+		const effect = sfx.get(name) || recordedSounds.get(name);
+		if (!effect) {
+			console.warn('Unknown sound effect', name, event);
+			return false;
+		}
+
+		effect.play(Math.max(0, currentTime - time));
+		return true;
+	}
+
+	return false;
+}
+
 puppetShow
 	.on('load', () => {
 		console.log('loaded puppet show', puppetShow.id);
@@ -467,10 +497,37 @@ puppetShow
 		console.log('error loading puppet show', id);
 		// todo: clear stage, force redraw and report error
 	})
-	.on('play', updateButtons)
-	.on('pause', updateButtons)
-	.on('ready', updateButtons)
-	.on('unready', updateButtons)
+	.on('play', () => {
+		currentSounds.forEach(soundEvent => {
+			const isCurrent = playSoundEvent(soundEvent);
+			if (!isCurrent) {
+				currentSounds.delete(soundEvent);
+			}
+		});
+		updateButtons();
+	})
+	.on('pause', () => {
+		recordedSounds.forEach(e => e.stop());
+		sfx.forEach(e => e.stop());
+		updateButtons();
+	})
+	.on('ready', () => {
+		puppetShow.audioAssets.forEach(asset => {
+			const effect = new SoundEffect({
+				src: asset.buffer,
+				context: audioContext,
+				name: asset.id
+			});
+			recordedSounds.set(asset.id, effect);
+		});
+		updateButtons();
+	})
+	.on('unready', () => {
+		currentSounds.clear();
+		recordedSounds.forEach(s => s.stop());
+		recordedSounds.clear();
+		updateButtons();
+	})
 	.on('event', event => {
 		if (puppetShowRecorder && puppetShowRecorder.recording) {
 			return;
@@ -494,20 +551,9 @@ puppetShow
 		}
 
 		if (event.type === 'sound') {
-			const name = event.params.name;
-			const time = event.time;
-			const duration = event.duration;
-			const currentTime = puppetShow.currentTime;
-
-			const timeLeft = Math.max(0, time + duration - currentTime);
-			if (timeLeft > 0) {
-				const effect = sfx.get(name);
-				if (!effect) {
-					console.warn('Unknown sound effect', name, event);
-					return;
-				}
-
-				effect.play(Math.max(0, currentTime - time));
+			const isCurrent = playSoundEvent(event);
+			if (isCurrent) {
+				currentSounds.add(event);
 			}
 			return;
 		}

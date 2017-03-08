@@ -117,7 +117,7 @@ function PuppetShow(options) {
 	// playback state
 	let playStartTime = 0;
 	let playEndTime = 0;
-	let playing = 0;
+	let playing = false;
 	let lastUpdateTime = 0;
 	let playEventIndex = 0;
 	const currentEventsByType = new Map();
@@ -336,6 +336,11 @@ function PuppetShow(options) {
 		duration = 0;
 		assetsToLoad = 0;
 
+		if (ready) {
+			ready = false;
+			this.emit('unready');
+		}
+
 		// erasing all media assets and events from server
 		showRef.child('duration').set(0);
 		showRef.child('events').remove();
@@ -373,15 +378,20 @@ function PuppetShow(options) {
 			event.duration = dur;
 		}
 
+		const isLastEvent = !events.length || events[events.length - 1].time <= event.time;
 		events.push(event);
 		showRef.child('events').push(event);
+
+		if (!isLastEvent) {
+			events.sort(sortEvents);
+		}
 
 		duration = Math.max(duration, time + (dur || 0));
 		showRef.child('duration').set(duration);
 		showRef.child('modifyTime').set(ServerValue.TIMESTAMP);
 	};
 
-	this.addAudio = (encodedBlob, time) => {
+	this.addAudio = (encodedBlob, dur, time) => {
 		if (!loaded) {
 			// todo: either wait to finish loading or throw error
 			return;
@@ -424,7 +434,6 @@ function PuppetShow(options) {
 			audioContext.decodeAudioData(fileReader.result).then(decodedBuffer => {
 
 				audioObject.buffer = decodedBuffer;
-				// todo: set up audio source or whatever
 				console.log('decoded audio');
 
 				duration = Math.max(duration, audioObject.time + decodedBuffer.duration);
@@ -450,8 +459,11 @@ function PuppetShow(options) {
 			console.log('saved audio file', id, snapshot);
 		});
 
-		// showRef.child('modifyTime').set(ServerValue.TIMESTAMP);
-		// todo: add to list of events
+		// add to list of events
+		this.addEvent('sound', {
+			name: id
+		}, null, dur, time);
+		showRef.child('modifyTime').set(ServerValue.TIMESTAMP);
 
 		if (wasReady) {
 			this.emit('unready');
@@ -503,7 +515,7 @@ function PuppetShow(options) {
 		// find any current events of each type/index and fire an event
 		// we assume the event handler will take care of ending the event
 		const currentTime = this.currentTime;
-		let index = currentTime >= lastUpdateTime ? playEventIndex : 0;
+		let index = currentTime > lastUpdateTime ? playEventIndex : 0;
 
 		currentEventsByType.forEach(map => map.clear());
 
@@ -566,6 +578,9 @@ function PuppetShow(options) {
 		},
 		events: {
 			value: events
+		},
+		audioAssets: {
+			value: audioAssets
 		},
 
 		playing: {

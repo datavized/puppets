@@ -188,10 +188,12 @@ function PuppetShowRecorder(options) {
 		endTime = now();
 		audioRecorder.stop();
 
+		const duration = (endTime - startTime) / 1000;
+
 		// todo: save audio asset to puppetShow if not being cleared?
 		audioRecorder.exportWAV(blob => {
 			// todo: add time when we allow appending
-			puppetShow.addAudio(blob);
+			puppetShow.addAudio(blob, duration);
 		});
 
 		this.emit('stop');
