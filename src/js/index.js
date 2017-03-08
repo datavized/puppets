@@ -9,7 +9,8 @@ window.WebVRConfig = {
 };
 
 const CHARACTER_SCALE = 1.5;
-const WORLD_SHRINK_SCALE = 1 / 10;
+const EDIT_WORLD_SCALE = 1 / 10;
+const PLAY_WORLD_SCALE = 1 / 3;
 const STAGE_HEIGHT = 1; // 1 for adults; 0.25 for kids? todo: adjustable
 
 const THREE = window.THREE = require('three');
@@ -398,7 +399,7 @@ function updateEditingState() {
 	/*
 	3D Scene adjustments for editing
 	*/
-	const worldScale = isEditing ? WORLD_SHRINK_SCALE : 1;
+	const worldScale = isEditing ? EDIT_WORLD_SCALE : PLAY_WORLD_SCALE;
 	world.scale.set(worldScale, worldScale, worldScale);
 
 	// todo: adjust this for kids!!
