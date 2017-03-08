@@ -331,7 +331,6 @@ function PuppetShow(options) {
 		this.rewind();
 
 		// clear events and assets from local memory
-		audioAssets.clear();
 		events.length = 0;
 		duration = 0;
 		assetsToLoad = 0;
@@ -345,9 +344,13 @@ function PuppetShow(options) {
 		showRef.child('duration').set(0);
 		showRef.child('events').remove();
 		showRef.child('audio').remove();
-		audioAssetsRef.delete()
-			.then(() => console.log('deleted audio files'))
-			.catch(err => console.log('error deleting audio files', err));
+
+		audioAssets.forEach(asset => {
+			audioAssetsRef.child(asset.id + '.wav').delete()
+				.then(() => console.log('deleted audio file', asset.id))
+				.catch(err => console.log('error deleting audio file', err));
+		});
+		audioAssets.clear();
 		/*
 		Erasing audio files from Firebase will fail without proper authentication
 		or appropriate configuration.
