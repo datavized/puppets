@@ -43,13 +43,13 @@ function SoundEffect(options) {
 		}
 	};
 
-	this.play = () => {
+	this.play = offset => {
 		if (buffer) {
 			const source = context.createBufferSource();
 			source.buffer = buffer;
 			source.connect(context.destination);
 			source.addEventListener('ended', stopEvent);
-			source.start(0);
+			source.start(0, offset || 0);
 			sources.push(source);
 		}
 	};

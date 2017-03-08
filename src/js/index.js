@@ -273,7 +273,7 @@ const puppetShow = new PuppetShow({
 	audioContext
 });
 
-const sfx = [];
+const sfx = new Map();
 [
 	'sounds/bark.wav',
 	'sounds/laugh.wav'
@@ -284,7 +284,7 @@ const sfx = [];
 		context: audioContext,
 		name
 	});
-	sfx.push(effect);
+	sfx.set(name, effect);
 });
 
 
@@ -491,6 +491,25 @@ puppetShow
 			puppet.visible = true;
 			return;
 		}
+
+		if (event.type === 'sound') {
+			const name = event.params.name;
+			const time = event.time;
+			const duration = event.duration;
+			const currentTime = puppetShow.currentTime;
+
+			const timeLeft = Math.max(0, time + duration - currentTime);
+			if (timeLeft > 0) {
+				const effect = sfx.get(name);
+				if (!effect) {
+					console.warn('Unknown sound effect', name, event);
+					return;
+				}
+
+				effect.play(Math.max(0, currentTime - time));
+			}
+			return;
+		}
 	});
 
 // Request animation frame loop function
@@ -553,7 +572,7 @@ function animate(timestamp) {
 		}
 	});
 
-	if (!isRecording) {
+	if (!isRecording || puppetShow.playing) {
 		puppetShow.update();
 	}
 
