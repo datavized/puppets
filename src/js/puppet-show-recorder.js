@@ -182,6 +182,8 @@ function PuppetShowRecorder(options) {
 			return;
 		}
 
+		puppetShow.pause();
+
 		recording = false;
 		endTime = now();
 		audioRecorder.stop();
@@ -202,6 +204,9 @@ function PuppetShowRecorder(options) {
 		// 	return;
 		// }
 
+		puppetShow.pause();
+		puppetShow.rewind();
+
 		if (audioRecorder) {
 			audioRecorder.clear();
 		}
@@ -214,16 +219,12 @@ function PuppetShowRecorder(options) {
 		this.emit('reset');
 	};
 
-	this.recordEvent = (eventType, params, time) => {
+	this.recordEvent = (eventType, params, index, dur) => {
 		if (!enabled) {
 			return;
 		}
 
-		if (recording || isNaN(time)) {
-			time = this.currentTime;
-		}
-
-		puppetShow.addEvent(eventType, params, time);
+		puppetShow.addEvent(eventType, params, index, dur, this.currentTime);
 	};
 
 	// todo: allow querying of recording devices

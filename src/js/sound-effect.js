@@ -15,6 +15,7 @@ function SoundEffect(options) {
 	xhr.onload = () => {
 		context.decodeAudioData(xhr.response, decodedBuffer => {
 			buffer = decodedBuffer;
+			this.duration = buffer.duration;
 			console.log('loaded buffer', src, buffer);
 		});
 	};
@@ -60,6 +61,8 @@ function SoundEffect(options) {
 	};
 
 	this.name = options.name || 'Sound';
+
+	this.duration = NaN;
 }
 
 export default SoundEffect;

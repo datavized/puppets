@@ -21,9 +21,10 @@ todo: replace with production credentials
 todo: move metadata into a sub-structure
 */
 
-const eventEmitter = require('event-emitter');
+import now from './now';
+import eventEmitter from 'event-emitter';
+import firebase from 'firebase';
 
-const firebase = require('firebase');
 const ServerValue = firebase.database.ServerValue;
 firebase.initializeApp({
 	apiKey: 'AIzaSyCkvi50P1OfJTHTw0xs4G8D_ca6C8Bv2z4',
@@ -112,11 +113,18 @@ function PuppetShow(options) {
 	let ready = false; // ready = ready to play
 	let duration = 0;
 	let assetsToLoad = 0;
+
+	// playback state
+	let playStartTime = 0;
+	let playEndTime = 0;
+	let playing = 0;
+	let lastUpdateTime = 0;
+	let playEventIndex = 0;
+	const currentEventsByType = new Map();
+	const previousEventsByType = new Map();
 	/*
 	todo:
 	- set/get methods for metadata (arbitrary key/value)
-	- methods for reading/creating/deleting events
-	- method for full reset/erase (should have confirmation in UI)
 	- track status of unsaved data and fire events accordingly
 	*/
 
@@ -158,12 +166,9 @@ function PuppetShow(options) {
 			title: '', // todo: set random words if not provided?
 
 			// todo: any additional metadata
-			// todo: see if Firebase can set time stamps on server?
 			createTime: ServerValue.TIMESTAMP,
 			modifyTime: ServerValue.TIMESTAMP,
 			creator: userId
-
-			// todo: empty lists for assets and events (or have firebase do it?)
 		});
 
 		audioAssetsRef = audioStorageRef.child(showId);
@@ -189,8 +194,6 @@ function PuppetShow(options) {
 		- reset metadata
 		- disable saving to or loading from Firebase
 		- stop playing (if we handle playback in here?)
-		- remove all events from list
-		- unload any audio or other media
 		*/
 
 		audioAssets.clear();
@@ -324,6 +327,9 @@ function PuppetShow(options) {
 			return;
 		}
 
+		this.pause();
+		this.rewind();
+
 		// clear events and assets from local memory
 		audioAssets.clear();
 		events.length = 0;
@@ -343,7 +349,7 @@ function PuppetShow(options) {
 		*/
 	};
 
-	this.addEvent = (type, params, time) => {
+	this.addEvent = (type, params, index, dur, time) => {
 		if (!showRef) {
 			return;
 		}
@@ -359,11 +365,20 @@ function PuppetShow(options) {
 			params
 		};
 
+		if (index !== undefined) {
+			event.index = index;
+		}
+
+		if (dur > 0) {
+			event.duration = dur;
+		}
+
 		events.push(event);
 		showRef.child('events').push(event);
 
-		duration = Math.max(duration, time);
+		duration = Math.max(duration, time + (dur || 0));
 		showRef.child('duration').set(duration);
+		showRef.child('modifyTime').set(ServerValue.TIMESTAMP);
 	};
 
 	this.addAudio = (encodedBlob, time) => {
@@ -435,10 +450,95 @@ function PuppetShow(options) {
 			console.log('saved audio file', id, snapshot);
 		});
 
+		// showRef.child('modifyTime').set(ServerValue.TIMESTAMP);
 		// todo: add to list of events
 
 		if (wasReady) {
 			this.emit('unready');
+		}
+	};
+
+	this.play = () => {
+		if (!ready) {
+			console.error('Cannot play show. Not fully loaded yet.');
+			return;
+		}
+
+		if (playing) {
+			return;
+		}
+
+		if (this.currentTime >= duration) {
+			this.rewind();
+		}
+
+		playing = true;
+		playStartTime = now();
+
+		// todo: adjust playStartTime for resuming
+
+		this.emit('play');
+		this.update();
+	};
+
+	this.pause = () => {
+		if (!playing) {
+			return;
+		}
+
+		playEndTime = now();
+		playing = false;
+
+		this.emit('pause');
+		this.update();
+	};
+
+	this.rewind = () => {
+		playStartTime = playEndTime = now();
+		// currentEventsByType.clear();
+		this.update();
+	};
+
+	this.update = () => {
+		// find any current events of each type/index and fire an event
+		// we assume the event handler will take care of ending the event
+		const currentTime = this.currentTime;
+		let index = currentTime >= lastUpdateTime ? playEventIndex : 0;
+
+		currentEventsByType.forEach(map => map.clear());
+
+		while (index < events.length) {
+			const event = events[index];
+			if (event.time > currentTime) {
+				break;
+			}
+
+			if (event.duration) {
+				// events with durations can happen simultaneously
+				this.emit('event', event);
+			} else {
+				// events w/o duration are one at a time, so only fire the latest
+				const type = event.type;
+				let currentEventsByIndex = currentEventsByType.get(type);
+				if (!currentEventsByIndex) {
+					currentEventsByIndex = new Map();
+					currentEventsByType.set(type, currentEventsByIndex);
+				}
+				currentEventsByIndex.set(event.index, event);
+			}
+			// const previous = previousEventsByIndex.get(event.index || null);
+			index++;
+		}
+
+		currentEventsByType.forEach(map => {
+			map.forEach(event => this.emit('event', event));
+		});
+
+		playEventIndex = index;
+		lastUpdateTime = currentTime;
+
+		if (currentTime >= duration) {
+			this.pause();
 		}
 	};
 
@@ -467,6 +567,14 @@ function PuppetShow(options) {
 		events: {
 			value: events
 		},
+
+		playing: {
+			get: () => playing
+		},
+		currentTime: {
+			get: () => Math.min(duration, ((playing ? now() : playEndTime) - playStartTime) / 1000)
+		},
+
 		title: {
 			get: () => title,
 			set: newTitle => {

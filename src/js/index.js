@@ -129,8 +129,6 @@ for (let i = 0; i < 2; i++) {
 	controller.standingMatrix = controls.getStandingMatrix();
 	scene.add(controller);
 	controllers.push(controller);
-
-	// controller.addEventListener('thumbpaddown', toggleEditing);
 }
 
 /*
@@ -259,6 +257,7 @@ light.shadow.camera.near = 1;
 
 scene.add(new THREE.AmbientLight(0x666666));
 
+const playButton = document.getElementById('play');
 const timecode = document.getElementById('timecode');
 const editingCheckbox = document.getElementById('editing');
 
@@ -298,18 +297,20 @@ function updateButtons() {
 	document.getElementById('edit-buttons').style.display = isEditing ? '' : 'none';
 	document.getElementById('sound-effects').style.display = isEditing ? '' : 'none';
 	document.getElementById('editing-label').style.display = puppetShow.isCreator ? '' : 'none';
-	document.getElementById('play').disabled = !puppetShow.ready;
+
+	playButton.disabled = !puppetShow.ready;
+	playButton.innerText = puppetShow.playing ? 'Pause' : 'Play';
 
 	if (isEditing) {
 		const recordButton = document.getElementById('record');
 		recordButton.disabled = !(puppetShowRecorder && puppetShowRecorder.ready);
 
 		if (puppetShowRecorder && puppetShowRecorder.recording) {
-			recordButton.innerHTML = 'Stop';
+			recordButton.innerText = 'Stop';
 		} else if (puppetShow.duration === 0) {
-			recordButton.innerHTML = 'Record';
+			recordButton.innerText = 'Record';
 		} else {
-			recordButton.innerHTML = 'Reset';
+			recordButton.innerText = 'Reset';
 		}
 	}
 }
@@ -385,7 +386,7 @@ function initializeEditor() {
 			if (puppetShowRecorder.recording) {
 				puppetShowRecorder.recordEvent('sound', {
 					name
-				});
+				}, null, effect.duration);
 			}
 		});
 	});
@@ -420,10 +421,22 @@ function updateEditingState() {
 	updateButtons();
 }
 
-// function toggleEditing() {
-// 	isEditing = !isEditing && puppetShow.isCreator;
-// 	updateEditingState();
-// }
+function togglePlaying() {
+	if (puppetShowRecorder && puppetShowRecorder.recording) {
+		return;
+	}
+
+	if (puppetShow.playing) {
+		puppetShow.pause();
+	} else {
+		puppetShow.play();
+	}
+}
+
+function toggleEditing() {
+	isEditing = !isEditing && puppetShow.isCreator;
+	updateEditingState();
+}
 
 function startEditing() {
 	isEditing = puppetShow.isCreator;
@@ -453,10 +466,32 @@ puppetShow
 		console.log('error loading puppet show', id);
 		// todo: clear stage, force redraw and report error
 	})
+	.on('play', updateButtons)
+	.on('pause', updateButtons)
 	.on('ready', updateButtons)
-	.on('unready', updateButtons);
+	.on('unready', updateButtons)
+	.on('event', event => {
+		if (puppetShowRecorder && puppetShowRecorder.recording) {
+			return;
+		}
 
+		if (event.type === 'puppet') {
+			const puppet = puppets[event.index];
+			if (!puppet) {
+				console.warn('Puppet index out of range', event);
+				return;
+			}
 
+			puppet.position.copy(event.params.position);
+
+			const rot = event.params.rotation;
+			puppet.rotation.set(rot.x, rot.y, rot.z);
+
+			// todo: move this out somewhere
+			puppet.visible = true;
+			return;
+		}
+	});
 
 // Request animation frame loop function
 let vrDisplay = null;
@@ -468,6 +503,7 @@ function animate(timestamp) {
 	// Update VR headset position and apply to camera.
 	controls.update();
 
+	const isRecording = puppetShowRecorder && puppetShowRecorder.recording;
 	controllers.forEach((c, i) => {
 		c.update();
 
@@ -485,7 +521,7 @@ function animate(timestamp) {
 				puppet.visible = true;
 			}
 
-			if (puppet) {
+			if (puppet && !puppetShow.playing) {
 				// apply standing matrix
 				c.matrix.decompose(c.position, c.quaternion, c.scale);
 
@@ -497,11 +533,10 @@ function animate(timestamp) {
 				puppet.position.clamp(stageBounds.min, stageBounds.max);
 				// todo: constrain puppet on all sides, not just bottom
 
-				if (puppetShowRecorder && puppetShowRecorder.recording) {
+				if (isRecording) {
 					const pos = puppet.position;
 					const rot = puppet.rotation;
 					puppetShowRecorder.recordEvent('puppet', {
-						puppet: i,
 						position: {
 							x: pos.x,
 							y: pos.y,
@@ -512,11 +547,15 @@ function animate(timestamp) {
 							y: rot.y,
 							z: rot.z
 						}
-					});
+					}, i);
 				}
 			}
 		}
 	});
+
+	if (!isRecording) {
+		puppetShow.update();
+	}
 
 	// render shadows once per cycle (not for each eye)
 	renderer.shadowMap.needsUpdate = true;
@@ -539,11 +578,12 @@ function animate(timestamp) {
 		renderer.render(scene, windowCamera);
 	}
 
-	// temp
+	// todo: format time properly w/ duration
+	// todo: show progress bar?
 	if (puppetShowRecorder && puppetShowRecorder.recording) {
-		// todo: format time properly
 		timecode.innerText = puppetShowRecorder.currentTime.toFixed(2);
-		// todo: if in playback mode, show play time
+	} else {
+		timecode.innerText = puppetShow.currentTime.toFixed(2);
 	}
 
 	// Keep looping.
@@ -634,13 +674,14 @@ window.addEventListener('keydown', event => {
 			vrDisplay.exitPresent();
 		}
 	}
-	// if (event.keyCode === 32) { // space
-	// 	toggleEditing();
-	// } else
-	if (event.keyCode === 86) { // v
+	if (event.keyCode === 32) { // space
+		togglePlaying();
+	} else if (event.keyCode === 86) { // v
 		togglePreview();
 	}
 }, true);
+
+playButton.addEventListener('click', togglePlaying);
 
 // load from URL or create a new one
 const showIdResults = /^#([a-z0-9\-_]+)/i.exec(window.location.hash);
@@ -659,6 +700,11 @@ document.getElementById('new-show').addEventListener('click', () => {
 editingCheckbox.addEventListener('change', () => {
 	isEditing = puppetShow.isCreator && editingCheckbox.checked;
 	updateEditingState();
+});
+
+controllers.forEach(controller => {
+	controller.addEventListener('triggerdown', toggleEditing);
+	controller.addEventListener('thumbpaddown', togglePlaying);
 });
 
 updateEditingState();
