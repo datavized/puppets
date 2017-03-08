@@ -195,7 +195,7 @@ Promise.all([
 	loadModel('models/chr_goth1.obj'),
 	loadModel('models/chr_headphones.obj')*/
 ]).then(results => {
-	results.forEach((model, index) => {
+	results.forEach(model => {
 		const bbox = new THREE.Box3();
 		bbox.setFromObject(model);
 
@@ -573,11 +573,12 @@ function animate(timestamp) {
 	controllers.forEach((c, i) => {
 		c.update();
 
-		// todo: only use controllers if editing
 		if (c.visible && isEditing) {
 			if (!c.userData.gamepad) {
 				c.userData.gamepad = c.getGamepad();
-				// loadController().then(obj => c.add(obj.clone()));
+				loadController().then(obj => {
+					c.add(i ? obj.clone() : obj);
+				});
 			}
 
 			let puppet = c.userData.puppet;
