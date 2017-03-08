@@ -109,8 +109,8 @@ stageBounds.min.y = stageBounds.max.y;
 stageBounds.max.y = Infinity;
 
 let isPreviewing = false;
-screenCamera.position.y = 1.5;
-screenCamera.position.z = 2;
+screenCamera.position.y = 4;
+screenCamera.position.z = 3;
 
 function updatePreviewing() {
 	windowCamera = isPreviewing ? camera : screenCamera;
