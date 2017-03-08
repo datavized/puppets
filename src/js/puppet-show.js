@@ -100,6 +100,7 @@ function sortEvents(a, b) {
 }
 
 function PuppetShow(options) {
+	const me = this;
 	const {audioContext} = options;
 
 	let showId = '';
@@ -107,8 +108,10 @@ function PuppetShow(options) {
 	let showCreatorId = '';
 	let audioAssetsRef = null;
 	let title = '';
-	let loaded = false;
+	let loaded = false; // loaded = data loaded, enough to edit
+	let ready = false; // ready = ready to play
 	let duration = 0;
+	let assetsToLoad = 0;
 	/*
 	todo:
 	- set/get methods for metadata (arbitrary key/value)
@@ -126,6 +129,13 @@ function PuppetShow(options) {
 	*/
 	const audioAssets = new Map();
 	const events = [];
+
+	function checkReady() {
+		if (!ready && !assetsToLoad && loaded) {
+			ready = true;
+			me.emit('ready');
+		}
+	}
 
 	eventEmitter(this);
 
@@ -165,11 +175,14 @@ function PuppetShow(options) {
 	this.unload = () => {
 		const id = showId;
 		const wasLoaded = loaded;
+		const wasReady = ready;
 
 		showId = '';
 		showCreatorId = '';
 		showRef = null;
 		loaded = false;
+		ready = false;
+		assetsToLoad = 0;
 		duration = 0;
 		/*
 		todo:
@@ -182,6 +195,10 @@ function PuppetShow(options) {
 
 		audioAssets.clear();
 		events.length = 0;
+
+		if (wasReady) {
+			this.emit('unready');
+		}
 
 		if (wasLoaded) {
 			this.emit('unload', id);
@@ -260,6 +277,9 @@ function PuppetShow(options) {
 							console.log('loaded buffer', url, decodedBuffer);
 
 							duration = Math.max(duration, audioObject.time + decodedBuffer.duration);
+
+							assetsToLoad--;
+							checkReady();
 						});
 					};
 					xhr.onerror = e => {
@@ -271,6 +291,8 @@ function PuppetShow(options) {
 				}).catch(err => {
 					console.error('Error accessing file', err, auth.currentUser);
 				});
+
+				assetsToLoad++;
 			});
 
 			loaded = true;
@@ -306,6 +328,7 @@ function PuppetShow(options) {
 		audioAssets.clear();
 		events.length = 0;
 		duration = 0;
+		assetsToLoad = 0;
 
 		// erasing all media assets and events from server
 		showRef.child('duration').set(0);
@@ -372,6 +395,10 @@ function PuppetShow(options) {
 
 		audioAssets.set(id, audioObject);
 
+		const wasReady = ready;
+		ready = false;
+		assetsToLoad++;
+
 		// todo: Decode and add to audioObject.buffer
 		const fileReader = new FileReader();
 		fileReader.onloadend = () => {
@@ -387,6 +414,9 @@ function PuppetShow(options) {
 
 				duration = Math.max(duration, audioObject.time + decodedBuffer.duration);
 				showRef.child('duration').set(duration);
+
+				assetsToLoad--;
+				checkReady();
 			});
 		};
 		fileReader.readAsArrayBuffer(encodedBlob);
@@ -406,11 +436,21 @@ function PuppetShow(options) {
 		});
 
 		// todo: add to list of events
+
+		if (wasReady) {
+			this.emit('unready');
+		}
 	};
 
 	Object.defineProperties(this, {
 		id: {
 			get: () => showId
+		},
+		loaded: {
+			get: () => loaded
+		},
+		ready: {
+			get: () => ready
 		},
 		duration: {
 			get: () => duration

@@ -298,6 +298,7 @@ function updateButtons() {
 	document.getElementById('edit-buttons').style.display = isEditing ? '' : 'none';
 	document.getElementById('sound-effects').style.display = isEditing ? '' : 'none';
 	document.getElementById('editing-label').style.display = puppetShow.isCreator ? '' : 'none';
+	document.getElementById('play').disabled = !puppetShow.ready;
 
 	if (isEditing) {
 		const recordButton = document.getElementById('record');
@@ -311,8 +312,6 @@ function updateButtons() {
 			recordButton.innerHTML = 'Reset';
 		}
 	}
-
-
 }
 
 function initializeEditor() {
@@ -453,7 +452,10 @@ puppetShow
 	.on('error', id => {
 		console.log('error loading puppet show', id);
 		// todo: clear stage, force redraw and report error
-	});
+	})
+	.on('ready', updateButtons)
+	.on('unready', updateButtons);
+
 
 
 // Request animation frame loop function
