@@ -44,7 +44,7 @@ function PuppetShowRecorder(options) {
 	let endTime = 0;
 
 	let audioInputDevice = null;
-	let audioStream = null;
+	// let audioStream = null;
 	let audioSource = null;
 	let audioRecorder = null;
 

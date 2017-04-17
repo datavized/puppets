@@ -136,7 +136,7 @@ function PuppetShow(options) {
 	let lastUpdateTime = 0;
 	let playEventIndex = 0;
 	const currentEventsByType = new Map();
-	const previousEventsByType = new Map();
+	// const previousEventsByType = new Map();
 	/*
 	todo:
 	- set/get methods for metadata (arbitrary key/value)

@@ -441,15 +441,15 @@ function toggleEditing() {
 	updateEditingState();
 }
 
-function startEditing() {
-	isEditing = puppetShow.isCreator;
-	updateEditingState();
-}
+// function startEditing() {
+// 	isEditing = puppetShow.isCreator;
+// 	updateEditingState();
+// }
 
-function stopEditing() {
-	isEditing = false;
-	updateEditingState();
-}
+// function stopEditing() {
+// 	isEditing = false;
+// 	updateEditingState();
+// }
 
 function playSoundEvent(event) {
 	if (!puppetShow.playing) {
