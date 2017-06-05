@@ -23,7 +23,7 @@ module.exports = function () {
 		const devConfig = assign({}, config.dev, {
 			entry: './src/js/index.js',
 			output: assign({}, config.dev.output, {
-				path: 'dist'
+				path: __dirname + '/../../dist'
 			})
 		});
 
