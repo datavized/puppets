@@ -47,17 +47,22 @@ module.exports = (function () {
 				{
 					test:	/\.js$/,
 					exclude: /node_modules/,
-					loader: 'jscs-loader',
+					loader: 'eslint-loader',
 					enforce: 'pre',
 					options: {
-						failOnHint: true,
-						emitErrors: true,
-
-						preset: 'crockford',
-						validateIndentation: '\t',
-						requireLineFeedAtFileEnd: null,
-						validateQuoteMarks: '\'',
-						requireMultipleVarDecl: false
+						failOnError: true,
+						emitError: true,
+						extends: 'eslint-config-crockford',
+						parserOptions: {
+							sourceType: 'module',
+							ecmaVersion: 6
+						},
+						rules: {
+							indent: ['error', 'tab', { SwitchCase: 1 }],
+							'eol-last': ['off'],
+							quotes: ['error', 'single']
+							// requireMultipleVarDecl: false
+						}
 					}
 				},
 
