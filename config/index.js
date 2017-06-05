@@ -55,7 +55,6 @@ module.exports = (function () {
 
 						preset: 'crockford',
 						validateIndentation: '\t',
-						validateLineBreaks: 'LF',
 						requireLineFeedAtFileEnd: null,
 						validateQuoteMarks: '\'',
 						requireMultipleVarDecl: false
