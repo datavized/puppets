@@ -13,7 +13,7 @@ module.exports = function (callback) {
 	const prodConfig = assign({}, config.production, {
 		entry: './src/js/index.js',
 		output: assign({}, config.dev.output, {
-			path: 'dist'
+			path: __dirname + '/../../dist'
 		})
 	});
 

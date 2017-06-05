@@ -32,28 +32,52 @@ module.exports = (function () {
 
 	const common = {
 		module: {
-			preLoaders: [
+			rules: [
+			// preLoaders
 				{
 					test: /\.js$/,
 					exclude: /node_modules/,
-					loader: 'jshint-loader'
+					loader: 'jshint-loader',
+					enforce: 'pre',
+					options: assign({
+						failOnHint: true,
+						emitErrors: true
+					}, pkg.jshintConfig)
 				},
 				{
 					test:	/\.js$/,
 					exclude: /node_modules/,
-					loader: 'jscs-loader'
-				}
-			],
-			loaders: [
-				{
-					test: /\.js$/,
-					exclude: /node_modules/,
-					loader: 'babel?presets[]=es2015&cacheDirectory=true'
+					loader: 'jscs-loader',
+					enforce: 'pre',
+					options: {
+						failOnHint: true,
+						emitErrors: true,
+
+						preset: 'crockford',
+						validateIndentation: '\t',
+						validateLineBreaks: 'LF',
+						requireLineFeedAtFileEnd: null,
+						validateQuoteMarks: '\'',
+						requireMultipleVarDecl: false
+					}
 				},
+
+				// main loaders
 				{
 					test: /\.js$/,
 					exclude: /node_modules/,
-					loader: 'exports-loader'
+					use: [
+						{
+							loader: 'babel-loader',
+							options: {
+								presets: ['es2015'],
+								cacheDirectory: true
+							}
+						},
+						{
+							loader: 'exports-loader'
+						}
+					]
 				},
 				{
 					test: /\.html$/,
@@ -67,7 +91,7 @@ module.exports = (function () {
 					*/
 					test: /\.(jpg|png)$/,
 					loader: 'url-loader',
-					query: {
+					options: {
 						limit: 8192,
 						name: 'images/[name].[ext]'
 					}
@@ -79,7 +103,7 @@ module.exports = (function () {
 					*/
 					test: /\.(obj|dae)$/,
 					loader: 'url-loader',
-					query: {
+					options: {
 						limit: 1,
 						name: 'models/[name].[ext]'
 					}
@@ -88,11 +112,13 @@ module.exports = (function () {
 		},
 
 		resolveLoader: {
-			root: path.join(__dirname, '../src/loaders')
-		},
-
-		resolve: {
-			modulesDirectories: ['node_modules']
+			alias: {
+				exports: 'exports-loader',
+				imports: 'imports-loader'
+			},
+			modules: [
+				'node_modules'
+			]
 		},
 
 		plugins: [
@@ -103,41 +129,50 @@ module.exports = (function () {
 			], {
 				ignore: ['.DS_Store']
 			})
-		],
-
-		jshint: assign({
-			failOnHint: true,
-			emitErrors: true
-		}, pkg.jshintConfig),
-
-		jscs: {
-			failOnHint: true,
-			emitErrors: true,
-
-			preset: 'crockford',
-			validateIndentation: '\t',
-			validateLineBreaks: 'LF',
-			requireLineFeedAtFileEnd: null,
-			validateQuoteMarks: '\'',
-			requireMultipleVarDecl: false
-		}
+		]
 	};
+
+	function filterModuleRules(module, ruleFilter) {
+		function fixRule(rule) {
+			if (Array.isArray(rule.use)) {
+				const use = rule.use.map(fixRule);
+				rule = assign({}, rule, {
+					use
+				});
+			}
+			if (!rule.loader) {
+				return rule;
+			}
+			return ruleFilter(rule);
+		}
+		const rules = module.rules.map(fixRule);
+		return assign({}, module, {
+			rules
+		});
+	}
 
 	const exports = {
 		title
 	};
 
 	exports.dev = assign({}, common, {
-		title: title,
-		debug: true,
+		module: filterModuleRules(common.module, rule => {
+			if (rule.loader === 'jshint-loader') {
+				const options = assign({
+					failOnHint: false,
+					emitErrors: false
+				}, pkg.jshintConfig);
+				rule = assign({}, rule, {
+					options
+				});
+			}
+			return rule;
+		}),
 		devtool: 'inline-source-map',
 		output: {
 			filename: 'index.js',
-			pathInfo: true
+			// pathInfo: true
 		},
-		jshint: assign({}, common.jshint, {
-			unused: false
-		}),
 		plugins: common.plugins.concat([
 			new webpack.DefinePlugin({
 				DEBUG: true
@@ -146,7 +181,6 @@ module.exports = (function () {
 	});
 
 	exports.production = assign({}, common, {
-		debug: false,
 		output: {
 			filename: 'index.js',
 			sourceMapFilename: '[file].map'
@@ -162,11 +196,14 @@ module.exports = (function () {
 			// }),
 			new webpack.optimize.DedupePlugin(),
 			new webpack.optimize.UglifyJsPlugin({
+				sourceMap: true,
 				compress: {
 					warnings: false
 				}
 			}),
-			new webpack.BannerPlugin(banner)
+			new webpack.BannerPlugin({
+				banner
+			})
 		])
 	});
 
